@@ -116,7 +116,7 @@ async function loadOrders() {
   const d = await api('GET', '/admin/orders');
   const orders = d.orders || [];
   const el = document.getElementById('pane-orders');
-  if (!orders.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Koi order nahi</div>'; return; }
+  if (!orders.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">No orders yet</div>'; return; }
   el.innerHTML = orders.map(o => `
     <div class="order-card">
       <div class="order-top">
@@ -143,7 +143,7 @@ async function loadClients() {
   const d = await api('GET', '/admin/clients-list');
   const clients = d.clients || [];
   const el = document.getElementById('pane-clients');
-  if (!clients.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Koi client nahi</div>'; return; }
+  if (!clients.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">No clients yet</div>'; return; }
   el.innerHTML = clients.map(c => {
     const valid = c.planExpiry && new Date(c.planExpiry) > new Date();
     const days = c.planExpiry ? Math.ceil((new Date(c.planExpiry)-new Date())/86400000) : 0;
@@ -164,14 +164,14 @@ async function loadClients() {
 }
 
 async function approve(orderId) {
-  if (!confirm('Approve karein?')) return;
+  if (!confirm('Approve ?')) return;
   const d = await api('POST', '/admin/approve/'+orderId);
   if (d.ok) { toast('✅ Approved! Key: '+d.apiKey, 'ok'); loadAll(); }
   else toast('Error: '+(d.error||'?'), 'err');
 }
 
 async function reject(orderId) {
-  if (!confirm('Reject karein?')) return;
+  if (!confirm('Reject ?')) return;
   await api('POST', '/admin/reject/'+orderId);
   toast('Rejected', 'inf'); loadAll();
 }
