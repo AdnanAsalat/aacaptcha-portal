@@ -134,8 +134,14 @@ footer .tg{color:#2AABEE;font-weight:600}
     <a href="#plans">Plans</a>
     <a href="#features">Features</a>
     <a href="https://t.me/AACaptchaSolver" target="_blank">Telegram</a>
-    <button class="btn btn-outline" onclick="openLogin()">Login</button>
-    <button class="btn btn-primary" onclick="openRegister()">Get Started</button>
+    <span id="nav-auth">
+      <button class="btn btn-outline" onclick="openLogin()">Login</button>
+      <button class="btn btn-primary" onclick="openRegister()">Get Started</button>
+    </span>
+    <span id="nav-user" style="display:none">
+      <span id="nav-name" style="color:var(--muted);font-size:13px;margin-right:10px"></span>
+      <button class="btn btn-outline" onclick="doLogout()">Logout</button>
+    </span>
   </div>
 </nav>
 
@@ -362,21 +368,39 @@ footer .tg{color:#2AABEE;font-weight:600}
           <div style="font-size:12px;color:var(--muted);margin-top:4px">Price: $1 per 1000 tasks</div>
         </div>
 
-        <div style="margin-bottom:12px;font-size:12px;color:var(--muted);font-weight:600">Send USDT to one of these addresses:</div>
+        <div style="margin-bottom:10px;font-size:12px;color:var(--muted);font-weight:600">Network select karo:</div>
+        
+        <!-- Network tabs -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          <div id="net-trc20" class="payment-box" onclick="selectNetwork('trc20')" style="cursor:pointer;border:2px solid var(--accent);text-align:center">
+            <div style="font-size:13px;font-weight:700;color:#a78bfa">TRC20</div>
+            <div style="font-size:11px;color:var(--muted)">Tron Network</div>
+            <div style="font-size:10px;color:#22c55e;margin-top:2px">✓ Lower fees</div>
+          </div>
+          <div id="net-bep20" class="payment-box" onclick="selectNetwork('bep20')" style="cursor:pointer;text-align:center">
+            <div style="font-size:13px;font-weight:700;color:#a78bfa">BEP20</div>
+            <div style="font-size:11px;color:var(--muted)">BSC Network</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">BNB Smart Chain</div>
+          </div>
+        </div>
 
-        <div class="payment-box">
-          <div class="payment-title">USDT TRC20 (Tron) — Lower fees</div>
-          <div class="payment-addr" id="addr-trc20">TSyXMwMLUGBxCPNBurRaogZzpXziAtcNh3</div>
+        <!-- TRC20 address -->
+        <div id="addr-box-trc20" class="payment-box">
+          <div class="payment-title">USDT TRC20 Address (Tron)</div>
+          <div class="payment-addr">TSyXMwMLUGBxCPNBurRaogZzpXziAtcNh3</div>
           <button class="copy-btn" onclick="copyText('TSyXMwMLUGBxCPNBurRaogZzpXziAtcNh3')">📋 Copy address</button>
         </div>
 
-        <div class="payment-box">
-          <div class="payment-title">USDT BEP20 (BSC)</div>
-          <div class="payment-addr" id="addr-bep20">0xc8bf99776ca9fb0c5665ffb4a0206c0de1d4d328</div>
+        <!-- BEP20 address -->
+        <div id="addr-box-bep20" class="payment-box" style="display:none">
+          <div class="payment-title">USDT BEP20 Address (BSC)</div>
+          <div class="payment-addr">0xc8bf99776ca9fb0c5665ffb4a0206c0de1d4d328</div>
           <button class="copy-btn" onclick="copyText('0xc8bf99776ca9fb0c5665ffb4a0206c0de1d4d328')">📋 Copy address</button>
         </div>
 
-        <button class="btn btn-primary" style="width:100%;padding:11px" onclick="showStep2()">I've sent payment →</button>
+        <div style="font-size:11px;color:var(--red);margin-bottom:10px">⚠️ Exact amount bhejo: <span id="exact-amount-show" style="font-weight:700"></span> USDT</div>
+
+        <button class="btn btn-primary" style="width:100%;padding:11px" onclick="showStep2()">Maine Payment Kar Di ✓</button>
       </div>
 
       <div id="buy-step2" style="display:none">
@@ -545,6 +569,8 @@ function doLogout() {
   token = null; userProfile = null;
   document.getElementById('dashboard').classList.remove('show');
   document.getElementById('landing').style.display = '';
+  document.getElementById('nav-auth').style.display = 'flex';
+  document.getElementById('nav-user').style.display = 'none';
   toast('Logged out', 'info');
 }
 
@@ -575,6 +601,11 @@ async function loadDashboard() {
     document.getElementById('landing').style.display = 'none';
     document.getElementById('dashboard').classList.add('show');
     document.getElementById('dash-name').textContent = d.name;
+    // Hide login/register from nav
+    document.getElementById('nav-auth').style.display = 'none';
+    document.getElementById('nav-user').style.display = 'flex';
+    document.getElementById('nav-user').style.alignItems = 'center';
+    document.getElementById('nav-name').textContent = d.name;
 
     // Render quick plan buttons in dashboard
     const dp = document.getElementById('dash-plans');
@@ -643,14 +674,19 @@ function openBuyPlan(planId) {
   if (!isCustom && selectedPlan) {
     document.getElementById('buy-amount').textContent = '$' + selectedPlan.price + ' USDT';
     document.getElementById('buy-tasks-text').textContent = selectedPlan.tasks.toLocaleString() + ' tasks/day • 30 days validity';
+    document.getElementById('exact-amount-show').textContent = selectedPlan.price;
   } else {
     document.getElementById('buy-amount').textContent = 'Custom Plan';
     document.getElementById('buy-tasks-text').textContent = 'Neeche tasks enter karo';
+    document.getElementById('exact-amount-show').textContent = '?';
   }
+  // Init network selection
+  selectNetwork('trc20');
   // Reset to step 1
   showStep1();
   document.getElementById('paid-btn').style.display = 'block';
   document.getElementById('waiting-box').style.display = 'none';
+  document.getElementById('tx-verify-box').style.display = 'none';
   openModal('buy-modal');
 }
 
@@ -670,6 +706,20 @@ function showStep1() {
 function showStep2() { 
   document.getElementById('buy-step1').style.display = 'none';
   document.getElementById('buy-step2').style.display = 'block';
+  // Set network in select
+  document.getElementById('pay-network').value = selectedNetwork;
+}
+
+let selectedNetwork = 'trc20';
+
+function selectNetwork(net) {
+  selectedNetwork = net;
+  // Update tab styles
+  document.getElementById('net-trc20').style.borderColor = net==='trc20' ? 'var(--accent)' : 'var(--border)';
+  document.getElementById('net-bep20').style.borderColor = net==='bep20' ? 'var(--accent)' : 'var(--border)';
+  // Show correct address
+  document.getElementById('addr-box-trc20').style.display = net==='trc20' ? 'block' : 'none';
+  document.getElementById('addr-box-bep20').style.display = net==='bep20' ? 'block' : 'none';
 }
 
 let currentOrderId = null;
@@ -708,7 +758,7 @@ async function submitOrder() {
   const customTasks = isCustom ? parseInt(document.getElementById('custom-tasks').value) : 0;
   if (isCustom && customTasks < 3000) { err.textContent = 'Minimum 3000 tasks'; return; }
 
-  const network = document.getElementById('pay-network').value;
+  const network = selectedNetwork || document.getElementById('pay-network').value || 'trc20';
   const formData = new FormData();
   formData.append('planId', selectedPlan.id);
   formData.append('customTasks', customTasks);
@@ -729,7 +779,8 @@ async function submitOrder() {
     // Update amount display with unique amount
     if (d.uniqueAmount) {
       document.getElementById('buy-amount').textContent = '$' + d.uniqueAmount.toFixed(2) + ' USDT';
-      document.getElementById('buy-tasks-text').textContent = '⚠️ Exact amount bhejo: $' + d.uniqueAmount.toFixed(2);
+      document.getElementById('buy-tasks-text').textContent = '⚠️ Bilkul yeh exact amount bhejo';
+      document.getElementById('exact-amount-show').textContent = d.uniqueAmount.toFixed(2);
     }
     
     // Show waiting UI
