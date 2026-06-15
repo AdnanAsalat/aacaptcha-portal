@@ -60,6 +60,85 @@ const PLANS = [
   { id: 'custom', tasks: 0,  price: 0  }
 ];
 
+// ── Auto-verify TRC20 payment ────────────────────────────────
+async function verifyTRC20Payment(txHash, expectedAmount) {
+  try {
+    const infoUrl = `https://api.trongrid.io/v1/transactions/${txHash}/events`;
+    const infoR = await fetch(infoUrl, { headers: { 'Accept': 'application/json' } });
+    if (!infoR.ok) return { ok: false, error: 'TRC20 TX not found' };
+    const infoData = await infoR.json();
+    const events = infoData.data || [];
+    
+    for (const event of events) {
+      if (event.event_name === 'Transfer') {
+        const toAddr = (event.result?.to || '').toLowerCase();
+        const ourAddr = PAYMENT_INFO.usdt_trc20.toLowerCase();
+        const amount = parseInt(event.result?.value || 0) / 1000000;
+        if (toAddr === ourAddr && amount >= expectedAmount * 0.99) {
+          return { ok: true, amount, network: 'TRC20' };
+        }
+      }
+    }
+    return { ok: false, error: `TRC20: Amount ya address match nahi hua. Expected: $${expectedAmount} to ${PAYMENT_INFO.usdt_trc20}` };
+  } catch(e) {
+    return { ok: false, error: 'TRC20 verify error: ' + e.message };
+  }
+}
+
+// ── Auto-verify BEP20 payment ─────────────────────────────────
+async function verifyBEP20Payment(txHash, expectedAmount) {
+  try {
+    // BSCScan public API (no key needed for basic tx lookup)
+    const USDT_BEP20 = '0x55d398326f99059ff775485246999027b3197955'; // USDT on BSC
+    const ourAddr = PAYMENT_INFO.usdt_bep20.toLowerCase();
+    
+    const url = `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}`;
+    const r = await fetch(url);
+    if (!r.ok) return { ok: false, error: 'BEP20 TX not found' };
+    const data = await r.json();
+    
+    if (!data.result) return { ok: false, error: 'Transaction not found on BSC' };
+    const receipt = data.result;
+    
+    if (receipt.status !== '0x1') return { ok: false, error: 'Transaction failed' };
+    
+    // Check logs for Transfer event
+    const logs = receipt.logs || [];
+    const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+    
+    for (const log of logs) {
+      if (log.topics[0] === transferTopic && 
+          log.address.toLowerCase() === USDT_BEP20) {
+        const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
+        const amount = parseInt(log.data, 16) / 1e18; // BEP20 USDT has 18 decimals
+        
+        if (toAddr === ourAddr && amount >= expectedAmount * 0.99) {
+          return { ok: true, amount, network: 'BEP20' };
+        }
+      }
+    }
+    return { ok: false, error: `BEP20: Amount ya address match nahi hua. Expected: $${expectedAmount}` };
+  } catch(e) {
+    return { ok: false, error: 'BEP20 verify error: ' + e.message };
+  }
+}
+
+// ── Auto-detect network and verify ───────────────────────────
+async function verifyPayment(txHash, expectedAmount) {
+  // TRC20 TX hashes are 64 hex chars, BEP20 start with 0x
+  if (txHash.startsWith('0x')) {
+    // Try BEP20
+    const bep = await verifyBEP20Payment(txHash, expectedAmount);
+    if (bep.ok) return bep;
+    return bep; // return BEP20 error
+  } else {
+    // Try TRC20
+    const trc = await verifyTRC20Payment(txHash, expectedAmount);
+    if (trc.ok) return trc;
+    return trc; // return TRC20 error  
+  }
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 function isAdmin(req) { return req.headers['x-admin-pass'] === ADMIN_PASS; }
 
@@ -236,6 +315,56 @@ app.post('/api/order', upload.single('screenshot'), (req, res) => {
   };
   saveOrders(orders);
   res.json({ ok: true, orderId, message: 'Order submit ho gaya! Admin verify karega.' });
+});
+
+// ── AUTO VERIFY ──────────────────────────────────────────────
+app.post('/api/verify-payment', async (req, res) => {
+  const token = req.headers['x-token'];
+  const clients = getClients();
+  const client = clients[token];
+  if (!client) return res.status(401).json({ error: 'Login karo' });
+
+  const { orderId } = req.body;
+  const orders = getOrders();
+  const order = orders[orderId];
+  if (!order) return res.status(404).json({ error: 'Order nahi mila' });
+  if (order.clientId !== client.id) return res.status(403).json({ error: 'Access denied' });
+  if (order.status === 'approved') return res.json({ ok: true, alreadyApproved: true });
+  if (!order.txHash) return res.json({ ok: false, error: 'Transaction hash nahi hai' });
+
+  const result = await verifyPayment(order.txHash, order.price);
+  
+  if (result.ok) {
+    // Auto-approve!
+    let apiKey = client.apiKey;
+    if (!apiKey) {
+      apiKey = 'aa_' + uuidv4().replace(/-/g,'').substring(0, 24);
+      await createSquarenetClient(client.name, apiKey, order.tasks);
+    } else {
+      await updateSquarenetPlan(apiKey, order.tasks);
+    }
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 30);
+
+    client.apiKey = apiKey;
+    client.plan = order.planId;
+    client.planTasks = order.tasks;
+    client.planExpiry = expiry.toISOString();
+    client.active = true;
+    clients[token] = client;
+    saveClients(clients);
+
+    order.status = 'approved';
+    order.approvedAt = new Date().toISOString();
+    order.autoVerified = true;
+    orders[orderId] = order;
+    saveOrders(orders);
+
+    res.json({ ok: true, apiKey, message: 'Payment verified! Plan activate ho gaya.' });
+  } else {
+    res.json({ ok: false, error: result.error });
+  }
 });
 
 // ── ADMIN ────────────────────────────────────────────────────
