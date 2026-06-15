@@ -470,15 +470,21 @@ app.post('/api/verify-payment', async (req, res) => {
   const client = clients[token];
   if (!client) return res.status(401).json({ error: 'Login karo' });
 
-  const { orderId } = req.body;
+  const { orderId, txHash } = req.body;
   const orders = getOrders();
   const order = orders[orderId];
   if (!order) return res.status(404).json({ error: 'Order nahi mila' });
   if (order.clientId !== client.id) return res.status(403).json({ error: 'Access denied' });
   if (order.status === 'approved') return res.json({ ok: true, alreadyApproved: true });
-  if (!order.txHash) return res.json({ ok: false, error: 'Transaction hash nahi hai' });
 
-  const result = await verifyPayment(order.txHash, order.price);
+  // Use provided txHash or order's stored txHash
+  const hashToVerify = txHash || order.txHash;
+  if (!hashToVerify) return res.json({ ok: false, error: 'Transaction hash daalo' });
+
+  // Save txHash to order
+  if (txHash) { order.txHash = txHash; orders[orderId] = order; saveOrders(orders); }
+
+  const result = await verifyPayment(hashToVerify, order.uniqueAmount || order.price);
   
   if (result.ok) {
     // Auto-approve!
