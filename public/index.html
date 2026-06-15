@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AACaptcha Solver — Professional Captcha Solving Service</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#050510;--card:#0d0d24;--border:#1a1a3e;
+  --accent:#6c3aed;--accent2:#3b82f6;--gold:#f59e0b;
+  --text:#e2e0f5;--muted:#6b6890;--green:#22c55e;--red:#ef4444
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh}
+a{color:var(--accent2);text-decoration:none}
+
+/* NAV */
+nav{background:rgba(13,13,36,.95);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:60px;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.logo{font-size:18px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex:1}
+.nav-links{display:flex;gap:20px;align-items:center}
+.nav-links a{color:var(--muted);font-size:13px;font-weight:500;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.btn{padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
+.btn:hover{opacity:.85;transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,#6c3aed,#3b82f6);color:#fff}
+.btn-outline{background:none;border:1px solid var(--border);color:var(--text)}
+.btn-gold{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000}
+.btn-green{background:var(--green);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-ghost{background:var(--card);border:1px solid var(--border);color:#a78bfa}
+
+/* HERO */
+.hero{text-align:center;padding:80px 24px 60px;background:radial-gradient(ellipse at top,rgba(108,58,237,.15),transparent 60%)}
+.hero-badge{display:inline-block;background:rgba(108,58,237,.2);border:1px solid rgba(108,58,237,.4);color:#a78bfa;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:20px}
+.hero h1{font-size:48px;font-weight:900;line-height:1.1;margin-bottom:16px;background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:18px;color:var(--muted);max-width:600px;margin:0 auto 32px}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* STATS */
+.stats{display:flex;justify-content:center;gap:40px;padding:40px 24px;flex-wrap:wrap}
+.stat{text-align:center}
+.stat-val{font-size:32px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* PLANS */
+.section{padding:60px 24px;max-width:1200px;margin:0 auto}
+.section-title{text-align:center;font-size:32px;font-weight:800;margin-bottom:8px}
+.section-sub{text-align:center;color:var(--muted);margin-bottom:40px}
+.plans-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.plan-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;transition:all .2s;cursor:pointer;position:relative}
+.plan-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 30px rgba(108,58,237,.2)}
+.plan-card.popular{border-color:var(--gold)}
+.plan-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold);color:#000;font-size:10px;font-weight:800;padding:2px 12px;border-radius:20px;white-space:nowrap}
+.plan-price{font-size:36px;font-weight:900;color:#a78bfa;line-height:1}
+.plan-price span{font-size:14px;font-weight:400;color:var(--muted)}
+.plan-tasks{font-size:18px;font-weight:700;margin:8px 0 4px;color:var(--text)}
+.plan-sub{font-size:11px;color:var(--muted)}
+.plan-features{margin:12px 0;font-size:12px;color:var(--muted);line-height:1.8}
+
+/* FEATURES */
+.features{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px;margin-top:20px}
+.feature{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
+.feature-icon{font-size:32px;margin-bottom:12px}
+.feature h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.feature p{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center}
+.modal-head h2{font-size:16px;font-weight:700;flex:1}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:22px}
+.modal-body{padding:24px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.form-input{width:100%;background:#0a0a1e;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-size:14px;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--accent)}
+.form-error{color:var(--red);font-size:12px;margin-top:4px}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab-btn{padding:10px 16px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none}
+.tab-btn.active{color:#a78bfa;border-bottom-color:var(--accent)}
+
+/* PAYMENT */
+.payment-box{background:#0a0a1e;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+.payment-title{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase}
+.payment-addr{font-family:monospace;font-size:12px;color:#a78bfa;word-break:break-all;background:rgba(108,58,237,.1);padding:8px;border-radius:6px;margin-bottom:6px}
+.copy-btn{font-size:11px;color:var(--muted);cursor:pointer;border:none;background:none;padding:0}
+.copy-btn:hover{color:#a78bfa}
+.amount-box{background:linear-gradient(135deg,rgba(108,58,237,.2),rgba(59,130,246,.2));border:1px solid rgba(108,58,237,.3);border-radius:10px;padding:14px;text-align:center;margin-bottom:16px}
+.amount-val{font-size:32px;font-weight:900;color:#a78bfa}
+.amount-sub{font-size:12px;color:var(--muted)}
+.step{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+.step-num{background:linear-gradient(135deg,#6c3aed,#3b82f6);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.step-text{font-size:13px;color:var(--muted);line-height:1.5}
+
+/* DASHBOARD */
+.dash{display:none}
+.dash.show{display:block}
+.dash-header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.dash-header h1{font-size:16px;font-weight:700;flex:1}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:20px;max-width:900px;margin:0 auto}
+.dash-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.dash-val{font-size:28px;font-weight:800;color:#a78bfa;line-height:1}
+.dash-lbl{font-size:11px;color:var(--muted);margin-top:4px}
+.progress-bar{height:6px;background:#1a1a3e;border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:linear-gradient(90deg,#6c3aed,#3b82f6);border-radius:3px;transition:width .3s}
+.api-box{background:#0a0a1e;border:1px solid var(--border);border-radius:10px;padding:14px;margin:0 20px 16px;display:flex;align-items:center;gap:10px}
+.api-key-text{font-family:monospace;font-size:13px;color:#a78bfa;flex:1;word-break:break-all}
+.alert{padding:12px 16px;border-radius:10px;font-size:13px;margin:0 20px 16px}
+.alert-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--gold)}
+.alert-green{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:40px 24px;text-align:center;color:var(--muted);font-size:13px;margin-top:60px}
+footer .tg{color:#2AABEE;font-weight:600}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:12px 18px;border-radius:10px;font-size:13px;color:#fff;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:slideIn .3s;max-width:320px}
+@keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.t-ok{background:linear-gradient(135deg,#16a34a,#15803d)}
+.t-err{background:linear-gradient(135deg,#dc2626,#991b1b)}
+.t-info{background:linear-gradient(135deg,#6c3aed,#3b82f6)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+@media(max-width:600px){.hero h1{font-size:32px}.stats{gap:24px}.plans-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">🔲 AACaptcha Solver</div>
+  <div class="nav-links">
+    <a href="#plans">Plans</a>
+    <a href="#features">Features</a>
+    <a href="https://t.me/AACaptchaSolver" target="_blank">Telegram</a>
+    <button class="btn btn-outline" onclick="openLogin()">Login</button>
+    <button class="btn btn-primary" onclick="openRegister()">Get Started</button>
+  </div>
+</nav>
+
+<!-- LANDING -->
+<div id="landing">
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">⚡ Professional Captcha Solving</div>
+    <h1>AACaptcha Solver</h1>
+    <p>KolotiBablo Square Net tasks automatically solve karo — fast, accurate, reliable. Train once, solve forever.</p>
+    <div class="hero-btns">
+      <button class="btn btn-primary" onclick="openRegister()" style="padding:12px 28px;font-size:15px">Get Started — $3/month</button>
+      <a href="#plans" class="btn btn-outline" style="padding:12px 28px;font-size:15px">View Plans</a>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><div class="stat-val">99.9%</div><div class="stat-lbl">Uptime</div></div>
+    <div class="stat"><div class="stat-val">&lt;2s</div><div class="stat-lbl">Response Time</div></div>
+    <div class="stat"><div class="stat-val">24/7</div><div class="stat-lbl">Auto Solving</div></div>
+    <div class="stat"><div class="stat-val">100K+</div><div class="stat-lbl">Tasks Solved</div></div>
+  </div>
+
+  <!-- PLANS -->
+  <div class="section" id="plans">
+    <div class="section-title">Choose Your Plan</div>
+    <div class="section-sub">30 days validity • Daily reset • USDT payment only</div>
+    <div class="plans-grid" id="plans-grid">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="section" id="features">
+    <div class="section-title">Why AACaptcha Solver?</div>
+    <div class="section-sub">Professional grade captcha solving for serious workers</div>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <h3>Real-Time Solving</h3>
+        <p>Tasks 2 second se kam mein solve hote hain — time out hone se pehle hi complete.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🧠</div>
+        <h3>Smart Training</h3>
+        <p>AI-powered recognition — ek baar train karo, baar baar automatically solve hoga.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔄</div>
+        <h3>Daily Reset</h3>
+        <p>Har roz midnight pe tasks reset hote hain — 30 din tak daily limit enjoy karo.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔐</div>
+        <h3>Secure API</h3>
+        <p>Unique API key — kisi ke saath share nahi karo. Sirf tumhara account.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <h3>Usage Dashboard</h3>
+        <p>Real-time usage dekho — kitne tasks use kiye, kitne baqi hain, expiry kab hai.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">💬</div>
+        <h3>Telegram Support</h3>
+        <p><a href="https://t.me/AACaptchaSolver" target="_blank">@AACaptchaSolver</a> pe 24/7 support available hai.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW TO USE -->
+  <div class="section">
+    <div class="section-title">How It Works</div>
+    <div class="section-sub">3 simple steps</div>
+    <div class="features">
+      <div class="feature" style="text-align:center">
+        <div class="feature-icon">1️⃣</div>
+        <h3>Register & Buy Plan</h3>
+        <p>Account banao, plan select karo, USDT se payment karo, screenshot upload karo.</p>
+      </div>
+      <div class="feature" style="text-align:center">
+        <div class="feature-icon">2️⃣</div>
+        <h3>Get API Key</h3>
+        <p>Admin verify karega (usually 1-2 hours), phir API key activate ho jayegi dashboard mein.</p>
+      </div>
+      <div class="feature" style="text-align:center">
+        <div class="feature-icon">3️⃣</div>
+        <h3>Install Extension</h3>
+        <p>AACaptcha Chrome extension install karo, API key daalo — automatic solving shuru!</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dash" id="dashboard">
+  <div class="dash-header">
+    <h1>🔲 AACaptcha Dashboard</h1>
+    <span id="dash-name" style="color:var(--muted);font-size:13px"></span>
+    <div style="flex:1"></div>
+    <button class="btn btn-ghost" style="margin-right:8px;font-size:12px" onclick="openChangePass()">🔑 Change Password</button>
+    <button class="btn btn-outline" style="font-size:12px" onclick="doLogout()">Logout</button>
+  </div>
+
+  <div style="padding:20px;max-width:900px;margin:0 auto">
+    <!-- Plan status -->
+    <div id="plan-status"></div>
+
+    <!-- API Key -->
+    <div id="api-section" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;padding:0 0 0 0">🔑 Your API Key (Extension mein daalo):</div>
+      <div class="api-box">
+        <div class="api-key-text" id="api-key-text">—</div>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" onclick="copyApiKey()">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash-grid" id="dash-grid">
+    <div class="dash-card">
+      <div class="dash-val" id="d-remaining">—</div>
+      <div class="dash-lbl">Remaining Today</div>
+      <div class="progress-bar"><div class="progress-fill" id="d-bar" style="width:0%"></div></div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-val" id="d-used">—</div>
+      <div class="dash-lbl">Used Today</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-val" id="d-daily">—</div>
+      <div class="dash-lbl">Daily Limit</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-val" id="d-expiry">—</div>
+      <div class="dash-lbl">Days Left</div>
+    </div>
+  </div>
+
+  <div style="padding:0 20px 20px;max-width:900px;margin:0 auto">
+    <button class="btn btn-primary" style="width:100%;padding:12px" onclick="openBuyPlan()">🛒 Buy / Renew Plan</button>
+  </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- LOGIN MODAL -->
+<div class="modal-bg" id="login-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Login</h2>
+      <button class="modal-close" onclick="closeModal('login-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="login-email" type="email" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="login-pass" type="password" placeholder="••••••••">
+      </div>
+      <div class="form-error" id="login-err"></div>
+      <button class="btn btn-primary" style="width:100%;padding:11px;margin-top:4px" onclick="doLogin()">Login</button>
+      <div style="text-align:center;margin-top:12px;font-size:13px;color:var(--muted)">
+        Account nahi? <a href="#" onclick="switchToRegister()">Register karo</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTER MODAL -->
+<div class="modal-bg" id="register-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Create Account</h2>
+      <button class="modal-close" onclick="closeModal('register-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input class="form-input" id="reg-name" type="text" placeholder="Apna naam">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="reg-email" type="email" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="reg-pass" type="password" placeholder="Min 6 characters">
+      </div>
+      <div class="form-error" id="reg-err"></div>
+      <button class="btn btn-primary" style="width:100%;padding:11px;margin-top:4px" onclick="doRegister()">Create Account</button>
+      <div style="text-align:center;margin-top:12px;font-size:13px;color:var(--muted)">
+        Already account hai? <a href="#" onclick="switchToLogin()">Login karo</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BUY PLAN MODAL -->
+<div class="modal-bg" id="buy-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <h2 id="buy-title">Buy Plan</h2>
+      <button class="modal-close" onclick="closeModal('buy-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="buy-step1">
+        <div style="margin-bottom:12px;font-size:13px;color:var(--muted)">Selected Plan:</div>
+        <div class="amount-box">
+          <div class="amount-val" id="buy-amount">$0 USDT</div>
+          <div class="amount-sub" id="buy-tasks-text"></div>
+        </div>
+
+        <!-- Custom tasks input -->
+        <div id="custom-input" style="display:none;margin-bottom:16px">
+          <label class="form-label">Tasks per day (minimum 3000)</label>
+          <input class="form-input" id="custom-tasks" type="number" min="3000" step="1000" placeholder="e.g. 8000" oninput="updateCustomPrice()">
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Price: $1 per 1000 tasks</div>
+        </div>
+
+        <div style="margin-bottom:12px;font-size:12px;color:var(--muted);font-weight:600">Send USDT to one of these addresses:</div>
+
+        <div class="payment-box">
+          <div class="payment-title">USDT TRC20 (Tron) — Lower fees</div>
+          <div class="payment-addr" id="addr-trc20">TSyXMwMLUGBxCPNBurRaogZzpXziAtcNh3</div>
+          <button class="copy-btn" onclick="copyText('TSyXMwMLUGBxCPNBurRaogZzpXziAtcNh3')">📋 Copy address</button>
+        </div>
+
+        <div class="payment-box">
+          <div class="payment-title">USDT BEP20 (BSC)</div>
+          <div class="payment-addr" id="addr-bep20">0xc8bf99776ca9fb0c5665ffb4a0206c0de1d4d328</div>
+          <button class="copy-btn" onclick="copyText('0xc8bf99776ca9fb0c5665ffb4a0206c0de1d4d328')">📋 Copy address</button>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;padding:11px" onclick="showStep2()">I've sent payment →</button>
+      </div>
+
+      <div id="buy-step2" style="display:none">
+        <div class="step"><div class="step-num">1</div><div class="step-text">USDT send karo upar diye address pe</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Transaction hash ya Binance screenshot neeche upload karo</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Admin verify karega — usually 1-2 hours mein API key activate ho jayegi</div></div>
+        <div class="divider"></div>
+        <div class="form-group">
+          <label class="form-label">Transaction Hash (optional)</label>
+          <input class="form-input" id="tx-hash" type="text" placeholder="0x... ya Binance TX ID">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Screenshot (required)</label>
+          <input class="form-input" id="pay-screenshot" type="file" accept="image/*">
+        </div>
+        <div class="form-error" id="buy-err"></div>
+        <button class="btn btn-gold" style="width:100%;padding:11px" onclick="submitOrder()">📤 Submit Order</button>
+        <button class="btn btn-ghost" style="width:100%;padding:10px;margin-top:8px" onclick="showStep1()">← Back</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD -->
+<div class="modal-bg" id="chpass-modal">
+  <div class="modal">
+    <div class="modal-head"><h2>Change Password</h2><button class="modal-close" onclick="closeModal('chpass-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Current Password</label><input class="form-input" id="cp-old" type="password"></div>
+      <div class="form-group"><label class="form-label">New Password</label><input class="form-input" id="cp-new" type="password"></div>
+      <div class="form-error" id="cp-err"></div>
+      <button class="btn btn-primary" style="width:100%;padding:11px" onclick="doChangePass()">Update Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div style="font-size:16px;font-weight:700;margin-bottom:8px">🔲 AACaptcha Solver</div>
+  <div>Professional Captcha Solving Service</div>
+  <div style="margin-top:12px">
+    <a href="https://t.me/AACaptchaSolver" target="_blank" class="tg">📢 @AACaptchaSolver</a>
+    &nbsp;•&nbsp;
+    <span>Support: <a href="https://t.me/AACaptchaSolver" target="_blank" class="tg">Telegram</a></span>
+  </div>
+  <div style="margin-top:12px;font-size:11px">© 2026 AACaptcha Solver. All rights reserved.</div>
+</footer>
+
+<script>
+const API = '';  // same origin
+let token = localStorage.getItem('aa_token');
+let userProfile = null;
+let selectedPlan = null;
+
+const PLANS = [
+  {id:'p1',tasks:3000,price:3},
+  {id:'p2',tasks:5000,price:5},
+  {id:'p3',tasks:7000,price:7},
+  {id:'p4',tasks:10000,price:10},
+  {id:'p5',tasks:15000,price:15},
+  {id:'p6',tasks:20000,price:20},
+  {id:'p7',tasks:25000,price:25},
+  {id:'p8',tasks:30000,price:30},
+  {id:'p9',tasks:40000,price:40},
+  {id:'p10',tasks:50000,price:50},
+  {id:'p11',tasks:75000,price:75},
+  {id:'p12',tasks:100000,price:100},
+  {id:'custom',tasks:0,price:0}
+];
+
+// ── Render Plans ─────────────────────────────────────────────
+function renderPlans() {
+  const grid = document.getElementById('plans-grid');
+  grid.innerHTML = PLANS.map(p => {
+    const isPopular = p.id === 'p4';
+    const isCustom = p.id === 'custom';
+    return `
+    <div class="plan-card${isPopular?' popular':''}" onclick="selectPlan('${p.id}')">
+      ${isPopular ? '<div class="plan-badge">⭐ POPULAR</div>' : ''}
+      <div class="plan-price">${isCustom?'Custom':'$'+p.price}<span>${isCustom?'':'USDT'}</span></div>
+      <div class="plan-tasks">${isCustom?'Any amount':p.tasks.toLocaleString()}</div>
+      <div class="plan-sub">${isCustom?'tasks/day':'tasks per day'}</div>
+      <div class="plan-features">✓ 30 days validity<br>✓ Daily reset<br>✓ API key<br>✓ 24/7 support</div>
+      <button class="btn btn-primary" style="width:100%;padding:8px;font-size:12px;margin-top:8px">
+        ${isCustom?'Customize':'Select Plan'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ── Auth ─────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-err');
+  err.textContent = '';
+  try {
+    const r = await fetch('/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, password:pass})
+    });
+    const d = await r.json();
+    if (!d.ok) { err.textContent = d.error; return; }
+    localStorage.setItem('aa_token', d.token);
+    token = d.token;
+    closeModal('login-modal');
+    toast('Welcome back, ' + d.name + '!', 'ok');
+    loadDashboard();
+  } catch(e) { err.textContent = 'Connection error'; }
+}
+
+async function doRegister() {
+  const name  = document.getElementById('reg-name').value;
+  const email = document.getElementById('reg-email').value;
+  const pass  = document.getElementById('reg-pass').value;
+  const err   = document.getElementById('reg-err');
+  err.textContent = '';
+  try {
+    const r = await fetch('/api/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name, email, password:pass})
+    });
+    const d = await r.json();
+    if (!d.ok) { err.textContent = d.error; return; }
+    toast('Account ban gaya! Ab login karo.', 'ok');
+    closeModal('register-modal');
+    openLogin();
+    document.getElementById('login-email').value = email;
+  } catch(e) { err.textContent = 'Connection error'; }
+}
+
+function doLogout() {
+  localStorage.removeItem('aa_token');
+  token = null; userProfile = null;
+  document.getElementById('dashboard').classList.remove('show');
+  document.getElementById('landing').style.display = '';
+  toast('Logged out', 'info');
+}
+
+async function doChangePass() {
+  const old = document.getElementById('cp-old').value;
+  const nw  = document.getElementById('cp-new').value;
+  const err = document.getElementById('cp-err');
+  err.textContent = '';
+  const r = await fetch('/api/change-password', {
+    method:'POST', headers:{'Content-Type':'application/json','x-token':token},
+    body: JSON.stringify({oldPassword:old, newPassword:nw})
+  });
+  const d = await r.json();
+  if (!d.ok) { err.textContent = d.error; return; }
+  toast('Password updated!', 'ok');
+  closeModal('chpass-modal');
+}
+
+// ── Dashboard ────────────────────────────────────────────────
+async function loadDashboard() {
+  if (!token) return;
+  try {
+    const r = await fetch('/api/profile', { headers: {'x-token': token} });
+    if (!r.ok) { doLogout(); return; }
+    const d = await r.json();
+    userProfile = d;
+
+    document.getElementById('landing').style.display = 'none';
+    document.getElementById('dashboard').classList.add('show');
+    document.getElementById('dash-name').textContent = d.name;
+
+    // Plan status
+    const ps = document.getElementById('plan-status');
+    if (!d.hasActivePlan) {
+      ps.innerHTML = `<div class="alert alert-warn">⚠️ Koi active plan nahi. Neeche Buy Plan click karo!</div>`;
+    } else {
+      const days = Math.ceil((new Date(d.planExpiry) - new Date()) / 86400000);
+      ps.innerHTML = `<div class="alert alert-green">✅ Plan active — ${days} days baqi hain</div>`;
+    }
+
+    // API Key
+    const apiSection = document.getElementById('api-section');
+    if (d.apiKey && d.hasActivePlan) {
+      apiSection.style.display = 'block';
+      document.getElementById('api-key-text').textContent = d.apiKey;
+    } else {
+      apiSection.style.display = 'none';
+    }
+
+    // Stats
+    const daily = d.planTasks || 0;
+    const used  = d.usedToday || 0;
+    const rem   = d.remainingToday || 0;
+    const pct   = daily > 0 ? Math.min(100, Math.round(used/daily*100)) : 0;
+    const days  = d.planExpiry ? Math.ceil((new Date(d.planExpiry)-new Date())/86400000) : 0;
+
+    document.getElementById('d-remaining').textContent = rem.toLocaleString();
+    document.getElementById('d-used').textContent      = used.toLocaleString();
+    document.getElementById('d-daily').textContent     = daily.toLocaleString();
+    document.getElementById('d-expiry').textContent    = d.hasActivePlan ? days+'d' : '—';
+    document.getElementById('d-bar').style.width       = pct + '%';
+
+  } catch(e) { console.error(e); }
+}
+
+// ── Buy Plan ─────────────────────────────────────────────────
+function selectPlan(planId) {
+  if (!token) { openLogin(); return; }
+  selectedPlan = PLANS.find(p => p.id === planId);
+  openBuyPlan();
+}
+
+function openBuyPlan() {
+  if (!token) { openLogin(); return; }
+  const isCustom = selectedPlan?.id === 'custom';
+  document.getElementById('custom-input').style.display = isCustom ? 'block' : 'none';
+  if (!isCustom && selectedPlan) {
+    document.getElementById('buy-amount').textContent = '$' + selectedPlan.price + ' USDT';
+    document.getElementById('buy-tasks-text').textContent = selectedPlan.tasks.toLocaleString() + ' tasks/day • 30 days';
+  } else {
+    document.getElementById('buy-amount').textContent = 'Custom';
+    document.getElementById('buy-tasks-text').textContent = 'Enter tasks below';
+  }
+  showStep1();
+  openModal('buy-modal');
+}
+
+function updateCustomPrice() {
+  const tasks = parseInt(document.getElementById('custom-tasks').value) || 0;
+  if (tasks >= 3000) {
+    const price = tasks / 1000;
+    document.getElementById('buy-amount').textContent = '$' + price + ' USDT';
+    document.getElementById('buy-tasks-text').textContent = tasks.toLocaleString() + ' tasks/day • 30 days';
+  }
+}
+
+function showStep1() {
+  document.getElementById('buy-step1').style.display = 'block';
+  document.getElementById('buy-step2').style.display = 'none';
+}
+function showStep2() { 
+  document.getElementById('buy-step1').style.display = 'none';
+  document.getElementById('buy-step2').style.display = 'block';
+}
+
+async function submitOrder() {
+  const err = document.getElementById('buy-err');
+  err.textContent = '';
+  
+  const file = document.getElementById('pay-screenshot').files[0];
+  if (!file) { err.textContent = 'Screenshot upload karo'; return; }
+
+  const isCustom = selectedPlan?.id === 'custom';
+  const customTasks = isCustom ? parseInt(document.getElementById('custom-tasks').value) : 0;
+  if (isCustom && customTasks < 3000) { err.textContent = 'Minimum 3000 tasks'; return; }
+
+  const formData = new FormData();
+  formData.append('planId', selectedPlan.id);
+  formData.append('customTasks', customTasks);
+  formData.append('txHash', document.getElementById('tx-hash').value);
+  formData.append('screenshot', file);
+
+  try {
+    const r = await fetch('/api/order', {
+      method: 'POST',
+      headers: { 'x-token': token },
+      body: formData
+    });
+    const d = await r.json();
+    if (!d.ok) { err.textContent = d.error; return; }
+    toast('Order submit ho gaya! Admin verify karega.', 'ok');
+    closeModal('buy-modal');
+  } catch(e) { err.textContent = 'Error: ' + e.message; }
+}
+
+// ── Utils ─────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openLogin() { closeModal('register-modal'); openModal('login-modal'); }
+function openRegister() { closeModal('login-modal'); openModal('register-modal'); }
+function openChangePass() { openModal('chpass-modal'); }
+function switchToRegister() { closeModal('login-modal'); openModal('register-modal'); }
+function switchToLogin() { closeModal('register-modal'); openModal('login-modal'); }
+
+function copyText(text) {
+  navigator.clipboard.writeText(text);
+  toast('Copied!', 'ok');
+}
+function copyApiKey() {
+  const key = document.getElementById('api-key-text').textContent;
+  navigator.clipboard.writeText(key);
+  toast('API Key copied!', 'ok');
+}
+
+function toast(msg, type='info') {
+  const old = document.querySelector('.toast'); if(old) old.remove();
+  const el = document.createElement('div');
+  el.className = 'toast t-' + type; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderPlans();
+  if (token) loadDashboard();
+  // Close modal on bg click
+  document.querySelectorAll('.modal-bg').forEach(bg => {
+    bg.addEventListener('click', e => { if(e.target===bg) bg.classList.remove('open'); });
+  });
+  // Enter key on login
+  document.getElementById('login-pass').addEventListener('keypress', e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('reg-pass').addEventListener('keypress', e => { if(e.key==='Enter') doRegister(); });
+});
+</script>
+</body>
+</html>
