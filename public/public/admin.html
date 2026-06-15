@@ -148,19 +148,86 @@ async function loadClients() {
     const valid = c.planExpiry && new Date(c.planExpiry) > new Date();
     const days = c.planExpiry ? Math.ceil((new Date(c.planExpiry)-new Date())/86400000) : 0;
     return `
-    <div class="client-row">
+    <div class="client-row" id="cr-${c.id}">
       <div class="client-top">
         <div class="client-name">👤 ${c.name}</div>
         <span class="badge badge-${valid?'approved':'rejected'}">${valid?'ACTIVE':'EXPIRED'}</span>
+        ${c.suspended ? '<span class="badge" style="background:rgba(239,68,68,.2);color:#ef4444">SUSPENDED</span>' : ''}
       </div>
       <div class="client-info">
         📧 ${c.email}<br>
-        📦 ${c.planTasks?.toLocaleString()||'—'} tasks/day • ${valid?days+'d left':'Expired'}<br>
+        📦 ${c.planTasks?.toLocaleString()||'No plan'} tasks/day • ${valid ? days+'d left' : 'Expired'}<br>
         📊 Used today: ${c.usedToday||0}<br>
-        ${c.apiKey ? `🔑 <span class="key-text">${c.apiKey}</span>` : 'No API key yet'}
+        ${c.apiKey ? `🔑 <span class="key-text">${c.apiKey}</span>` : '<span style="color:var(--muted)">No API key yet</span>'}
+      </div>
+      
+      <!-- Manual Plan Activate -->
+      <div style="margin-top:10px;padding:10px;background:#0a0a1e;border-radius:8px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600">MANUAL PLAN ACTIVATE</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select id="plan-sel-${c.id}" style="background:#0a0a1e;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:11px;outline:none">
+            <option value="3000">3,000 tasks - $3</option>
+            <option value="5000">5,000 tasks - $5</option>
+            <option value="7000">7,000 tasks - $7</option>
+            <option value="10000" selected>10,000 tasks - $10</option>
+            <option value="15000">15,000 tasks - $15</option>
+            <option value="20000">20,000 tasks - $20</option>
+            <option value="25000">25,000 tasks - $25</option>
+            <option value="30000">30,000 tasks - $30</option>
+            <option value="40000">40,000 tasks - $40</option>
+            <option value="50000">50,000 tasks - $50</option>
+            <option value="75000">75,000 tasks - $75</option>
+            <option value="100000">100,000 tasks - $100</option>
+          </select>
+          <input id="days-sel-${c.id}" type="number" value="30" min="1" max="365" 
+            style="width:60px;background:#0a0a1e;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:11px;outline:none" 
+            placeholder="Days">
+          <span style="font-size:11px;color:var(--muted)">days</span>
+          <button class="btn bgrn" style="padding:5px 10px;font-size:11px" onclick="manualActivate('${c.id}')">✅ Activate</button>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn bg" style="padding:5px 10px;font-size:11px" onclick="copyToClip('${c.apiKey||''}')">📋 Copy Key</button>
+        <button class="btn ${c.suspended?'bgrn':'bam'}" style="padding:5px 10px;font-size:11px" onclick="toggleSuspend('${c.id}',${!!c.suspended})">
+          ${c.suspended ? '▶ Unsuspend' : '⏸ Suspend'}
+        </button>
+        <button class="btn br" style="padding:5px 10px;font-size:11px" onclick="deleteClient('${c.id}','${c.name}')">🗑 Delete</button>
       </div>
     </div>`;
   }).join('');
+}
+
+async function manualActivate(clientId) {
+  const tasks = parseInt(document.getElementById('plan-sel-'+clientId).value);
+  const days  = parseInt(document.getElementById('days-sel-'+clientId).value) || 30;
+  if (!confirm(`Activate ${tasks.toLocaleString()} tasks/day for ${days} days?`)) return;
+  const d = await api('POST', '/admin/manual-activate', { clientId, tasks, days });
+  if (d.ok) { toast('✅ Plan activated! Key: ' + (d.apiKey||'existing'), 'ok'); loadAll(); }
+  else toast('Error: ' + (d.error||'?'), 'err');
+}
+
+async function toggleSuspend(clientId, currentlySuspended) {
+  const action = currentlySuspended ? 'unsuspend' : 'suspend';
+  if (!confirm(`${action} this client?`)) return;
+  const d = await api('POST', '/admin/suspend-client', { clientId, suspend: !currentlySuspended });
+  if (d.ok) { toast(`Client ${action}ed`, 'ok'); loadAll(); }
+  else toast('Error: ' + d.error, 'err');
+}
+
+async function deleteClient(clientId, name) {
+  if (!confirm(`DELETE client "${name}"? This cannot be undone!`)) return;
+  if (!confirm(`Are you sure? All data for "${name}" will be permanently deleted.`)) return;
+  const d = await api('DELETE', '/admin/delete-client/' + clientId);
+  if (d.ok) { toast('Client deleted', 'ok'); loadAll(); }
+  else toast('Error: ' + d.error, 'err');
+}
+
+function copyToClip(text) {
+  if (!text) { toast('No API key', 'err'); return; }
+  navigator.clipboard.writeText(text);
+  toast('Copied!', 'ok');
 }
 
 async function approve(orderId) {
