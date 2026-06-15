@@ -608,6 +608,69 @@ app.post('/admin/approve/:orderId', async (req, res) => {
   res.json({ ok: true, apiKey, message: `Plan activate! Key: ${apiKey}` });
 });
 
+// Manual plan activate
+app.post('/admin/manual-activate', async (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const { clientId, tasks, days } = req.body;
+  if (!clientId || !tasks) return res.status(400).json({ error: 'Missing data' });
+  
+  const clients = getClients();
+  const client = clients[clientId];
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+
+  let apiKey = client.apiKey;
+  if (!apiKey) {
+    apiKey = 'aa_' + uuidv4().replace(/-/g,'').substring(0, 24);
+    await createSquarenetClient(client.name, apiKey, tasks);
+  } else {
+    await updateSquarenetPlan(apiKey, tasks);
+  }
+
+  const expiry = new Date();
+  expiry.setDate(expiry.getDate() + (days || 30));
+
+  client.apiKey = apiKey;
+  client.planTasks = tasks;
+  client.planExpiry = expiry.toISOString();
+  client.active = true;
+  client.suspended = false;
+  clients[clientId] = client;
+  saveClients(clients);
+
+  res.json({ ok: true, apiKey });
+});
+
+// Suspend/unsuspend client
+app.post('/admin/suspend-client', async (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const { clientId, suspend } = req.body;
+  const clients = getClients();
+  if (!clients[clientId]) return res.status(404).json({ error: 'Not found' });
+  clients[clientId].suspended = suspend;
+  clients[clientId].active = !suspend;
+  saveClients(clients);
+  // Also update on squarenet server
+  if (clients[clientId].apiKey) {
+    await updateSquarenetPlan(clients[clientId].apiKey, suspend ? 0 : clients[clientId].planTasks);
+  }
+  res.json({ ok: true });
+});
+
+// Delete client permanently
+app.delete('/admin/delete-client/:clientId', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const clients = getClients();
+  const client = clients[req.params.clientId];
+  if (!client) return res.status(404).json({ error: 'Not found' });
+  delete clients[req.params.clientId];
+  saveClients(clients);
+  // Also delete from usage
+  const usage = getUsage();
+  delete usage[req.params.clientId];
+  saveUsage(usage);
+  res.json({ ok: true });
+});
+
 // Reject order
 app.post('/admin/reject/:orderId', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
