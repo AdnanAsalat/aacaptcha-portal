@@ -376,22 +376,31 @@ footer .tg{color:#2AABEE;font-weight:600}
       </div>
 
       <div id="buy-step2" style="display:none">
-        <div class="step"><div class="step-num">1</div><div class="step-text">USDT send karo upar diye address pe</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-text">Transaction hash ya Binance screenshot neeche upload karo</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-text">Admin verify karega — usually 1-2 hours mein API key activate ho jayegi</div></div>
+        <div class="step"><div class="step-num">1</div><div class="step-text">Upar diye address pe <strong>exact amount</strong> USDT bhejo</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Payment karne ke baad <strong>"I've Paid"</strong> dabao</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">System <strong>30 minutes</strong> tak automatically check karega — jaise hi payment mile, plan activate ho jayega!</div></div>
         <div class="divider"></div>
+        
+        <!-- Network select -->
         <div class="form-group">
-          <label class="form-label">Transaction Hash ⚡ (Auto-verify ke liye — TRC20 TX ID)</label>
-          <input class="form-input" id="tx-hash" type="text" placeholder="TRC20: TronScan TX ID  |  BEP20: 0x... BSCScan TX Hash">
-          <div style="font-size:11px;color:#22c55e;margin-top:3px">✅ TRC20 ya BEP20 dono automatically verify honge — instant activation!</div>
+          <label class="form-label">Konse network se bheja? (Optional — dono check honge)</label>
+          <select class="form-input" id="pay-network">
+            <option value="both">Pata nahi / Dono check karo</option>
+            <option value="trc20">TRC20 (Tron)</option>
+            <option value="bep20">BEP20 (BSC)</option>
+          </select>
         </div>
-        <div class="form-group">
-          <label class="form-label">Payment Screenshot (TX hash na ho to)</label>
-          <input class="form-input" id="pay-screenshot" type="file" accept="image/*">
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">Screenshot se manual verification hogi (1-2 hours)</div>
+
+        <!-- Waiting indicator -->
+        <div id="waiting-box" style="display:none;background:rgba(108,58,237,.1);border:1px solid rgba(108,58,237,.3);border-radius:10px;padding:16px;text-align:center;margin-bottom:12px">
+          <div style="font-size:24px;margin-bottom:8px">⏳</div>
+          <div style="font-size:14px;font-weight:700;color:#a78bfa">Payment verify ho rahi hai...</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Blockchain check ho raha hai — max 30 minutes</div>
+          <div id="check-timer" style="font-size:20px;font-weight:700;color:#a78bfa;margin-top:8px">30:00</div>
         </div>
+
         <div class="form-error" id="buy-err"></div>
-        <button class="btn btn-gold" style="width:100%;padding:11px" onclick="submitOrder()">📤 Submit Order</button>
+        <button class="btn btn-gold" style="width:100%;padding:11px" id="paid-btn" onclick="submitOrder()">✅ I've Paid — Start Verification</button>
         <button class="btn btn-ghost" style="width:100%;padding:10px;margin-top:8px" onclick="showStep1()">← Back</button>
       </div>
     </div>
@@ -616,27 +625,26 @@ function showStep2() {
   document.getElementById('buy-step2').style.display = 'block';
 }
 
+let currentOrderId = null;
+let verifyInterval = null;
+let timerInterval = null;
+
 async function submitOrder() {
   const err = document.getElementById('buy-err');
   err.textContent = '';
   
-  const txHash = document.getElementById('tx-hash').value.trim();
-  const file = document.getElementById('pay-screenshot').files[0];
-  
-  if (!txHash && !file) { err.textContent = 'TX Hash ya Screenshot zaroor daalo'; return; }
-
   const isCustom = selectedPlan?.id === 'custom';
   const customTasks = isCustom ? parseInt(document.getElementById('custom-tasks').value) : 0;
   if (isCustom && customTasks < 3000) { err.textContent = 'Minimum 3000 tasks'; return; }
 
+  const network = document.getElementById('pay-network').value;
   const formData = new FormData();
   formData.append('planId', selectedPlan.id);
   formData.append('customTasks', customTasks);
-  formData.append('txHash', txHash);
-  if (file) formData.append('screenshot', file);
+  formData.append('network', network);
+  formData.append('txHash', '');
 
   try {
-    err.textContent = '⏳ Order submit ho raha hai...';
     const r = await fetch('/api/order', {
       method: 'POST',
       headers: { 'x-token': token },
@@ -644,30 +652,64 @@ async function submitOrder() {
     });
     const d = await r.json();
     if (!d.ok) { err.textContent = d.error; return; }
-
-    // Auto-verify if TX hash provided
-    if (txHash) {
-      err.textContent = '🔍 Payment verify ho rahi hai blockchain pe...';
-      const vr = await fetch('/api/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-token': token },
-        body: JSON.stringify({ orderId: d.orderId })
+    
+    currentOrderId = d.orderId;
+    
+    // Update amount display with unique amount
+    if (d.uniqueAmount) {
+      document.getElementById('buy-amount').textContent = '$' + d.uniqueAmount.toFixed(2) + ' USDT';
+      document.getElementById('buy-tasks-text').textContent = '⚠️ Exact amount bhejo: $' + d.uniqueAmount.toFixed(2);
+    }
+    
+    // Show waiting UI
+    document.getElementById('paid-btn').style.display = 'none';
+    document.getElementById('waiting-box').style.display = 'block';
+    
+    // Start 30 min countdown
+    let secondsLeft = 30 * 60;
+    timerInterval = setInterval(() => {
+      secondsLeft--;
+      const m = Math.floor(secondsLeft / 60);
+      const s = secondsLeft % 60;
+      document.getElementById('check-timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+      if (secondsLeft <= 0) {
+        clearInterval(timerInterval);
+        clearInterval(verifyInterval);
+        err.textContent = '⏰ 30 minutes ho gaye — payment nahi mili. Admin se contact karo: t.me/AACaptchaSolver';
+        document.getElementById('paid-btn').style.display = 'block';
+        document.getElementById('paid-btn').textContent = '🔄 Retry';
+        document.getElementById('waiting-box').style.display = 'none';
+      }
+    }, 1000);
+    
+    // Poll every 30 seconds for result
+    verifyInterval = setInterval(async () => {
+      const vr = await fetch('/api/check-order/' + currentOrderId, {
+        headers: { 'x-token': token }
       });
       const vd = await vr.json();
-      
-      if (vd.ok) {
-        toast('✅ Payment verified! Plan activate ho gaya!', 'ok');
+      if (vd.approved) {
+        clearInterval(verifyInterval);
+        clearInterval(timerInterval);
+        toast('🎉 Payment verify! Plan activate ho gaya!', 'ok');
         closeModal('buy-modal');
         loadDashboard();
-        return;
-      } else {
-        err.textContent = '⚠️ Auto-verify nahi hua: ' + vd.error + ' — Admin manually verify karega.';
-        setTimeout(() => { closeModal('buy-modal'); toast('Order submit! Admin verify karega.', 'ok'); }, 3000);
       }
-    } else {
-      toast('Order submit ho gaya! Admin verify karega (1-2 hours).', 'ok');
-      closeModal('buy-modal');
-    }
+    }, 30000);
+    
+    // Check immediately once after 15s
+    setTimeout(async () => {
+      const vr = await fetch('/api/check-order/' + currentOrderId, { headers: { 'x-token': token } });
+      const vd = await vr.json();
+      if (vd.approved) {
+        clearInterval(verifyInterval);
+        clearInterval(timerInterval);
+        toast('🎉 Payment verify! Plan activate ho gaya!', 'ok');
+        closeModal('buy-modal');
+        loadDashboard();
+      }
+    }, 15000);
+
   } catch(e) { err.textContent = 'Error: ' + e.message; }
 }
 
