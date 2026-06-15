@@ -11,6 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
+app.use(express.static('public/public')); // fallback for double-public
 
 // ── Data Storage ─────────────────────────────────────────────
 const DATA_DIR = path.join(__dirname, 'data');
