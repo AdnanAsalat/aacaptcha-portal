@@ -123,20 +123,147 @@ async function verifyBEP20Payment(txHash, expectedAmount) {
   }
 }
 
-// ── Auto-detect network and verify ───────────────────────────
+// ── Auto-detect network and verify by TX hash ────────────────
 async function verifyPayment(txHash, expectedAmount) {
-  // TRC20 TX hashes are 64 hex chars, BEP20 start with 0x
   if (txHash.startsWith('0x')) {
-    // Try BEP20
-    const bep = await verifyBEP20Payment(txHash, expectedAmount);
-    if (bep.ok) return bep;
-    return bep; // return BEP20 error
+    return await verifyBEP20Payment(txHash, expectedAmount);
   } else {
-    // Try TRC20
-    const trc = await verifyTRC20Payment(txHash, expectedAmount);
-    if (trc.ok) return trc;
-    return trc; // return TRC20 error  
+    return await verifyTRC20Payment(txHash, expectedAmount);
   }
+}
+
+// ── Scan TRC20 recent transactions (no TX hash needed) ────────
+async function scanTRC20Recent(expectedAmount) {
+  try {
+    const ourAddr = PAYMENT_INFO.usdt_trc20;
+    const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+    // Get last 40 TRC20 USDT transfers to our address (last ~30 min)
+    const url = `https://api.trongrid.io/v1/accounts/${ourAddr}/transactions/trc20?limit=40&contract_address=${USDT_CONTRACT}`;
+    const r = await fetch(url, { headers: { 'Accept': 'application/json', 'TRON-PRO-API-KEY': '' } });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const txs = data.data || [];
+    const now = Date.now();
+    const thirtyMin = 30 * 60 * 1000;
+    
+    for (const tx of txs) {
+      const ts = tx.block_timestamp || 0;
+      if (now - ts > thirtyMin) continue;
+      if (tx.to !== ourAddr) continue;
+      const amount = parseInt(tx.value || 0) / 1000000;
+      // Exact match with 0.005 tolerance (half cent)
+      if (Math.abs(amount - expectedAmount) <= 0.005) {
+        return { ok: true, amount, txHash: tx.transaction_id, network: 'TRC20' };
+      }
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+// ── Scan BEP20 recent transactions (no TX hash needed) ────────
+async function scanBEP20Recent(expectedAmount) {
+  try {
+    const ourAddr = PAYMENT_INFO.usdt_bep20.toLowerCase();
+    const USDT_BEP20 = '0x55d398326f99059ff775485246999027b3197955';
+    const url = `https://api.bscscan.com/api?module=account&action=tokentx&contractaddress=${USDT_BEP20}&address=${ourAddr}&sort=desc&page=1&offset=20`;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data.status !== '1') return null;
+    const txs = data.result || [];
+    const now = Math.floor(Date.now() / 1000);
+    const thirtyMin = 30 * 60;
+    
+    for (const tx of txs) {
+      if (now - parseInt(tx.timeStamp) > thirtyMin) continue;
+      if (tx.to.toLowerCase() !== ourAddr) continue;
+      const amount = parseInt(tx.value) / 1e18;
+      if (Math.abs(amount - expectedAmount) <= 0.005) {
+        return { ok: true, amount, txHash: tx.hash, network: 'BEP20' };
+      }
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+// ── Active order polling (check every 2 min) ──────────────────
+async function pollPendingOrders() {
+  const orders = getOrders();
+  const clients = getClients();
+  const pending = Object.values(orders).filter(o => 
+    o.status === 'pending' && o.autoCheck && 
+    (Date.now() - new Date(o.createdAt).getTime()) < 35 * 60 * 1000 // within 35 min
+  );
+  
+  for (const order of pending) {
+    // Try TRC20 first, then BEP20
+    const network = order.network || 'both';
+    let result = null;
+    
+    const checkAmount = order.uniqueAmount || order.price;
+    if (network === 'trc20' || network === 'both') {
+      result = await scanTRC20Recent(checkAmount);
+    }
+    if (!result && (network === 'bep20' || network === 'both')) {
+      result = await scanBEP20Recent(checkAmount);
+    }
+    
+    if (result && result.ok) {
+      // Auto-approve!
+      const client = clients[order.clientId];
+      if (!client) continue;
+      
+      let apiKey = client.apiKey;
+      if (!apiKey) {
+        apiKey = 'aa_' + require('uuid').v4().replace(/-/g,'').substring(0, 24);
+        await createSquarenetClient(client.name, apiKey, order.tasks);
+      } else {
+        await updateSquarenetPlan(apiKey, order.tasks);
+      }
+      
+      const expiry = new Date();
+      expiry.setDate(expiry.getDate() + 30);
+      client.apiKey = apiKey;
+      client.plan = order.planId;
+      client.planTasks = order.tasks;
+      client.planExpiry = expiry.toISOString();
+      client.active = true;
+      clients[order.clientId] = client;
+      
+      order.status = 'approved';
+      order.approvedAt = new Date().toISOString();
+      order.autoVerified = true;
+      order.txHash = result.txHash;
+      order.network = result.network;
+      orders[order.id] = order;
+      
+      console.log(`Auto-verified: ${order.clientName} - $${order.price} via ${result.network}`);
+    }
+  }
+  
+  saveClients(clients);
+  saveOrders(orders);
+}
+
+// Start polling every 2 minutes
+setInterval(pollPendingOrders, 2 * 60 * 1000);
+
+// ── Generate unique payment amount ───────────────────────────
+function generateUniqueAmount(basePrice) {
+  const orders = getOrders();
+  const pending = Object.values(orders).filter(o => o.status === 'pending');
+  // Find used cents offsets
+  const usedOffsets = new Set(pending.map(o => {
+    const diff = Math.round((o.uniqueAmount - o.price) * 100);
+    return diff;
+  }));
+  // Find first unused offset (1-99 cents)
+  for (let i = 1; i <= 99; i++) {
+    if (!usedOffsets.has(i)) {
+      return Math.round((basePrice + i / 100) * 100) / 100;
+    }
+  }
+  return basePrice + 0.01; // fallback
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -302,19 +429,38 @@ app.post('/api/order', upload.single('screenshot'), (req, res) => {
   const orders = getOrders();
   const orderId = 'ORD-' + Date.now();
 
+  const network = req.body.network || 'both';
+  const uniqueAmount = generateUniqueAmount(price); // unique cents for identification
   orders[orderId] = {
     id: orderId,
     clientId: client.id,
     clientName: client.name,
     clientEmail: client.email,
-    planId, tasks, price,
+    planId, tasks, price, uniqueAmount, network,
     txHash: txHash || '',
     screenshot: req.file ? req.file.filename : null,
     status: 'pending',
+    autoCheck: true,
     createdAt: new Date().toISOString()
   };
   saveOrders(orders);
-  res.json({ ok: true, orderId, message: 'Order submit ho gaya! Admin verify karega.' });
+  res.json({ ok: true, orderId, uniqueAmount, message: 'Order submit ho gaya!' });
+});
+
+// ── Check order status (client polls this) ───────────────────
+app.get('/api/check-order/:orderId', (req, res) => {
+  const token = req.headers['x-token'];
+  const clients = getClients();
+  const client = clients[token];
+  if (!client) return res.status(401).json({ error: 'Login karo' });
+  const orders = getOrders();
+  const order = orders[req.params.orderId];
+  if (!order || order.clientId !== client.id) return res.status(404).json({ error: 'Not found' });
+  res.json({ 
+    approved: order.status === 'approved',
+    status: order.status,
+    apiKey: order.status === 'approved' ? client.apiKey : null
+  });
 });
 
 // ── AUTO VERIFY ──────────────────────────────────────────────
