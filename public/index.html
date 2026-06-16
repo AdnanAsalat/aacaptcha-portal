@@ -551,9 +551,10 @@ async function doRegister() {
   const err   = document.getElementById('reg-err');
   err.textContent = '';
   try {
+    const refCode = localStorage.getItem('aa_ref') || '';
     const r = await fetch('/api/register', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name, email, password:pass})
+      body: JSON.stringify({name, email, password:pass, ref: refCode})
     });
     const d = await r.json();
     if (!d.ok) { err.textContent = d.error; return; }
@@ -651,6 +652,10 @@ async function loadDashboard() {
     document.getElementById('d-daily').textContent     = daily.toLocaleString();
     document.getElementById('d-expiry').textContent    = d.hasActivePlan ? days+'d' : '—';
     document.getElementById('d-bar').style.width       = pct + '%';
+    document.getElementById('d-wallet').textContent    = '$' + (d.walletBalance||0).toFixed(2);
+    if (d.referralLink) {
+      document.getElementById('ref-link').textContent = d.referralLink;
+    }
 
   } catch(e) { console.error(e); }
 }
@@ -851,6 +856,12 @@ function copyApiKey() {
   const key = document.getElementById('api-key-text').textContent;
   navigator.clipboard.writeText(key);
   toast('API Key copied!', 'ok');
+}
+
+function copyRefLink() {
+  const link = document.getElementById('ref-link').textContent;
+  navigator.clipboard.writeText(link);
+  toast('Referral link copied!', 'ok');
 }
 
 function toast(msg, type='info') {
