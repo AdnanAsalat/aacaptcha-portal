@@ -330,16 +330,20 @@ app.post('/api/register', async (req, res) => {
 
   const id = uuidv4();
   const hash = await bcrypt.hash(password, 10);
+  const refCode = req.body.ref || ''; // referral code used during signup
 
   clients[id] = {
     id, name, email: email.toLowerCase(),
     password: hash,
     apiKey: null, plan: null, planTasks: 0,
     planExpiry: null, active: false,
+    referralCode: id.substring(0,8), // unique referral code
+    referredBy: refCode || null,      // who referred this user
+    walletBalance: 0,                 // referral earnings
     createdAt: new Date().toISOString()
   };
   saveClients(clients);
-  res.json({ ok: true, message: 'Account ban gaya! Ab plan kharido.' });
+  res.json({ ok: true, message: 'Account created! Buy a plan to get started.' });
 });
 
 // Login
@@ -383,7 +387,10 @@ app.get('/api/profile', (req, res) => {
     plan: client.plan, planTasks: client.planTasks,
     planExpiry: client.planExpiry,
     remainingToday: remaining,
-    usedToday: client.planTasks ? (client.planTasks - remaining) : 0
+    usedToday: client.planTasks ? (client.planTasks - remaining) : 0,
+    walletBalance: client.walletBalance || 0,
+    referralCode: client.referralCode || client.id.substring(0,8),
+    referralLink: `${process.env.PORTAL_URL || 'https://aacaptcha-portal-production.up.railway.app'}?ref=${client.referralCode || client.id.substring(0,8)}`
   });
 });
 
@@ -422,9 +429,13 @@ app.post('/api/order', upload.single('screenshot'), (req, res) => {
   if (!plan) return res.status(400).json({ error: 'Plan nahi mila' });
 
   const tasks = planId === 'custom' ? parseInt(customTasks) : plan.tasks;
-  const price = planId === 'custom' ? (tasks / 1000) : plan.price;
+  let price = planId === 'custom' ? (tasks / 1000) : plan.price;
 
   if (tasks < 3000) return res.status(400).json({ error: 'Minimum 3000 tasks' });
+
+  // Apply wallet balance discount
+  const walletUse = Math.min(client.walletBalance || 0, price);
+  const finalPrice = Math.max(0, price - walletUse);
 
   const orders = getOrders();
   const orderId = 'ORD-' + Date.now();
@@ -444,7 +455,12 @@ app.post('/api/order', upload.single('screenshot'), (req, res) => {
     createdAt: new Date().toISOString()
   };
   saveOrders(orders);
-  res.json({ ok: true, orderId, uniqueAmount, message: 'Order submit ho gaya!' });
+  res.json({ 
+    ok: true, orderId, 
+    uniqueAmount: finalPrice > 0 ? uniqueAmount : 0,
+    finalPrice, walletUsed: walletUse,
+    message: walletUse > 0 ? `Wallet se $${walletUse.toFixed(2)} use hua!` : 'Order submitted!'
+  });
 });
 
 // ── Check order status (client polls this) ───────────────────
@@ -597,6 +613,20 @@ app.post('/admin/approve/:orderId', async (req, res) => {
   client.planTasks = order.tasks;
   client.planExpiry = expiry.toISOString();
   client.active = true;
+
+  // Referral reward — $0.10 to referrer (only on FIRST purchase)
+  if (client.referredBy && !client.referralRewardGiven) {
+    const referrer = Object.values(clients).find(c => 
+      (c.referralCode || c.id.substring(0,8)) === client.referredBy
+    );
+    if (referrer) {
+      referrer.walletBalance = (referrer.walletBalance || 0) + 0.10;
+      clients[referrer.id] = referrer;
+      console.log(`Referral reward: $0.10 to ${referrer.name} for referring ${client.name}`);
+    }
+    client.referralRewardGiven = true; // only once
+  }
+
   clients[order.clientId] = client;
   saveClients(clients);
 
