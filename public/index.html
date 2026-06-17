@@ -365,7 +365,7 @@ footer .tg{color:#2AABEE;font-weight:600}
         <div id="custom-input" style="display:none;margin-bottom:16px">
           <label class="form-label">Tasks per day (minimum 3000)</label>
           <input class="form-input" id="custom-tasks" type="number" min="3000" step="1000" placeholder="e.g. 8000" oninput="updateCustomPrice()">
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">Price: $1 per 1000 tasks</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Price: $1 per 1000 tasks — Minimum: 3,000 tasks ($3)</div>
         </div>
 
         <div style="margin-bottom:10px;font-size:12px;color:var(--muted);font-weight:600">Select Payment Network:</div>
@@ -701,6 +701,10 @@ function updateCustomPrice() {
     const price = tasks / 1000;
     document.getElementById('buy-amount').textContent = '$' + price + ' USDT';
     document.getElementById('buy-tasks-text').textContent = tasks.toLocaleString() + ' tasks/day • 30 days';
+    document.getElementById('exact-amount-show').textContent = price;
+  } else {
+    document.getElementById('buy-amount').textContent = 'Minimum $3';
+    document.getElementById('buy-tasks-text').textContent = 'Minimum 3,000 tasks required';
   }
 }
 
