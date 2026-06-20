@@ -32,6 +32,7 @@ function writeJSON(file, data) {
 
 // ── Config ───────────────────────────────────────────────────
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || 'YourApiKeyToken';
 const SQUARENET_SERVER = process.env.SQUARENET_SERVER || 'https://squarenet-server-production.up.railway.app';
 const SQUARENET_ADMIN_PASS = process.env.SQUARENET_ADMIN_PASS || 'admin123';
 
@@ -88,21 +89,20 @@ async function verifyTRC20Payment(txHash, expectedAmount) {
 // ── Auto-verify BEP20 payment ─────────────────────────────────
 async function verifyBEP20Payment(txHash, expectedAmount) {
   try {
-    // BSCScan public API (no key needed for basic tx lookup)
     const USDT_BEP20 = '0x55d398326f99059ff775485246999027b3197955'; // USDT on BSC
     const ourAddr = PAYMENT_INFO.usdt_bep20.toLowerCase();
     
-    const url = `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}`;
-    const r = await fetch(url);
-    if (!r.ok) return { ok: false, error: 'BEP20 TX not found' };
+    // Etherscan V2 API - multichain, chainid=56 for BSC (free, no key required for basic calls)
+    const url = `https://api.etherscan.io/v2/api?chainid=56&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${ETHERSCAN_API_KEY}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return { ok: false, error: 'BEP20 TX lookup failed' };
     const data = await r.json();
     
     if (!data.result) return { ok: false, error: 'Transaction not found on BSC' };
     const receipt = data.result;
     
-    if (receipt.status !== '0x1') return { ok: false, error: 'Transaction failed' };
+    if (receipt.status !== '0x1') return { ok: false, error: 'Transaction failed on-chain' };
     
-    // Check logs for Transfer event
     const logs = receipt.logs || [];
     const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
     
@@ -110,7 +110,7 @@ async function verifyBEP20Payment(txHash, expectedAmount) {
       if (log.topics[0] === transferTopic && 
           log.address.toLowerCase() === USDT_BEP20) {
         const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
-        const amount = parseInt(log.data, 16) / 1e18; // BEP20 USDT has 18 decimals
+        const amount = parseInt(log.data, 16) / 1e18;
         
         if (toAddr === ourAddr && amount >= expectedAmount * 0.99) {
           return { ok: true, amount, network: 'BEP20' };
@@ -165,8 +165,8 @@ async function scanBEP20Recent(expectedAmount) {
   try {
     const ourAddr = PAYMENT_INFO.usdt_bep20.toLowerCase();
     const USDT_BEP20 = '0x55d398326f99059ff775485246999027b3197955';
-    const url = `https://api.bscscan.com/api?module=account&action=tokentx&contractaddress=${USDT_BEP20}&address=${ourAddr}&sort=desc&page=1&offset=20`;
-    const r = await fetch(url);
+    const url = `https://api.etherscan.io/v2/api?chainid=56&module=account&action=tokentx&contractaddress=${USDT_BEP20}&address=${ourAddr}&sort=desc&page=1&offset=20&apikey=${ETHERSCAN_API_KEY}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!r.ok) return null;
     const data = await r.json();
     if (data.status !== '1') return null;
