@@ -267,7 +267,9 @@ footer .tg{color:#2AABEE;font-weight:600}
       <div class="api-box">
         <div class="api-key-text" id="api-key-text">—</div>
         <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" onclick="copyApiKey()">📋 Copy</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" onclick="regenerateKey()">🔄 Change Key</button>
       </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">⚠️ If you shared your key by mistake, click "Change Key" — old key stops working immediately.</div>
     </div>
   </div>
 
@@ -288,6 +290,24 @@ footer .tg{color:#2AABEE;font-weight:600}
     <div class="dash-card">
       <div class="dash-val" id="d-expiry">—</div>
       <div class="dash-lbl">Days Left</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-val" id="d-wallet" style="color:#f59e0b">$0.00</div>
+      <div class="dash-lbl">Wallet Balance</div>
+    </div>
+  </div>
+
+  <!-- Referral Section -->
+  <div style="padding:0 20px 16px;max-width:900px;margin:0 auto">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+      <div style="font-size:13px;color:#a78bfa;margin-bottom:8px;font-weight:700">🎁 Refer & Earn</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        Share your link — earn <strong style="color:#f59e0b">$0.10</strong> in wallet for every new client who buys any plan. Your wallet balance is auto-applied to your next purchase!
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div id="ref-link" style="font-size:11px;color:#a78bfa;background:#0a0a1e;padding:9px 10px;border-radius:6px;flex:1;word-break:break-all;font-family:monospace">—</div>
+        <button class="btn btn-ghost" style="padding:8px 14px;font-size:11px;white-space:nowrap" onclick="copyRefLink()">📋 Copy</button>
+      </div>
     </div>
   </div>
 
@@ -865,6 +885,23 @@ function copyRefLink() {
   const link = document.getElementById('ref-link').textContent;
   navigator.clipboard.writeText(link);
   toast('Referral link copied!', 'ok');
+}
+
+async function regenerateKey() {
+  if (!confirm('Change your API key?\n\nYour OLD key will STOP working immediately. You will need to update the key in your Chrome extension.')) return;
+  try {
+    const r = await fetch('/api/regenerate-key', {
+      method: 'POST',
+      headers: { 'x-token': token }
+    });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('api-key-text').textContent = d.apiKey;
+      toast('✅ New API key generated! Update it in your extension.', 'ok');
+    } else {
+      toast('Error: ' + (d.error || 'Could not change key'), 'err');
+    }
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
 }
 
 function toast(msg, type='info') {
