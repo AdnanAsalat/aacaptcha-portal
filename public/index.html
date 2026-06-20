@@ -773,15 +773,16 @@ async function verifyWithTxHash() {
   } catch(e) { err.textContent = 'Error: ' + e.message; }
 }
 
-async function submitOrder() {
-  const err = document.getElementById('buy-err');
-  err.textContent = '';
-  
+// STEP 1: Create order FIRST, get unique amount, show it BEFORE user pays
+async function createOrderAndShowAmount() {
   const isCustom = selectedPlan?.id === 'custom';
   const customTasks = isCustom ? parseInt(document.getElementById('custom-tasks').value) : 0;
-  if (isCustom && customTasks < 3000) { err.textContent = 'Minimum 3000 tasks required'; return; }
+  if (isCustom && customTasks < 3000) {
+    alert('Minimum 3000 tasks required');
+    return;
+  }
 
-  const network = selectedNetwork || document.getElementById('pay-network').value || 'trc20';
+  const network = selectedNetwork || 'trc20';
   const formData = new FormData();
   formData.append('planId', selectedPlan.id);
   formData.append('customTasks', customTasks);
@@ -795,66 +796,73 @@ async function submitOrder() {
       body: formData
     });
     const d = await r.json();
-    if (!d.ok) { err.textContent = d.error; return; }
-    
-    currentOrderId = d.orderId;
-    
-    // Update amount display with unique amount
-    if (d.uniqueAmount) {
-      document.getElementById('buy-amount').textContent = '$' + d.uniqueAmount.toFixed(2) + ' USDT';
-      document.getElementById('buy-tasks-text').textContent = '⚠️ Send this exact amount';
-      document.getElementById('exact-amount-show').textContent = d.uniqueAmount.toFixed(2);
-    }
-    
-    // Show waiting UI
-    document.getElementById('paid-btn').style.display = 'none';
-    document.getElementById('waiting-box').style.display = 'block';
-    
-    // Start 30 min countdown
-    let secondsLeft = 30 * 60;
-    timerInterval = setInterval(() => {
-      secondsLeft--;
-      const m = Math.floor(secondsLeft / 60);
-      const s = secondsLeft % 60;
-      document.getElementById('check-timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
-      if (secondsLeft <= 0) {
-        clearInterval(timerInterval);
-        clearInterval(verifyInterval);
-        // Show TX hash input for manual verify
-        document.getElementById('waiting-box').style.display = 'none';
-        document.getElementById('tx-verify-box').style.display = 'block';
-      }
-    }, 1000);
-    
-    // Poll every 30 seconds for result
-    verifyInterval = setInterval(async () => {
-      const vr = await fetch('/api/check-order/' + currentOrderId, {
-        headers: { 'x-token': token }
-      });
-      const vd = await vr.json();
-      if (vd.approved) {
-        clearInterval(verifyInterval);
-        clearInterval(timerInterval);
-        toast('🎉 Payment verified! Plan activated!', 'ok');
-        closeModal('buy-modal');
-        loadDashboard();
-      }
-    }, 10000);
-    
-    // Check immediately once after 5s
-    setTimeout(async () => {
-      const vr = await fetch('/api/check-order/' + currentOrderId, { headers: { 'x-token': token } });
-      const vd = await vr.json();
-      if (vd.approved) {
-        clearInterval(verifyInterval);
-        clearInterval(timerInterval);
-        toast('🎉 Payment verified! Plan activated!', 'ok');
-        closeModal('buy-modal');
-        loadDashboard();
-      }
-    }, 15000);
+    if (!d.ok) { alert(d.error); return; }
 
-  } catch(e) { err.textContent = 'Error: ' + e.message; }
+    pendingOrderId = d.orderId;
+    pendingUniqueAmount = d.uniqueAmount;
+
+    showStep2();
+
+    if (d.walletUsed > 0) {
+      document.getElementById('buy-amount').textContent = '$' + d.uniqueAmount.toFixed(2) + ' USDT';
+      document.getElementById('buy-tasks-text').textContent = `💰 $${d.walletUsed.toFixed(2)} used from wallet! Send: $${d.uniqueAmount.toFixed(2)}`;
+      document.getElementById('exact-amount-show').textContent = d.uniqueAmount.toFixed(2);
+    } else if (d.uniqueAmount > 0) {
+      document.getElementById('buy-amount').textContent = '$' + d.uniqueAmount.toFixed(2) + ' USDT';
+      document.getElementById('buy-tasks-text').textContent = '⚠️ Send this EXACT amount (unique tracking cents included)';
+      document.getElementById('exact-amount-show').textContent = d.uniqueAmount.toFixed(2);
+    } else {
+      document.getElementById('buy-amount').textContent = '$0 USDT';
+      document.getElementById('buy-tasks-text').textContent = '✅ Fully paid from wallet balance!';
+      document.getElementById('exact-amount-show').textContent = '0';
+    }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// STEP 2: User clicks this AFTER actually sending the exact amount shown above
+function startVerification() {
+  currentOrderId = pendingOrderId;
+
+  document.getElementById('paid-btn').style.display = 'none';
+  document.getElementById('waiting-box').style.display = 'block';
+
+  let secondsLeft = 30 * 60;
+  timerInterval = setInterval(() => {
+    secondsLeft--;
+    const m = Math.floor(secondsLeft / 60);
+    const s = secondsLeft % 60;
+    document.getElementById('check-timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (secondsLeft <= 0) {
+      clearInterval(timerInterval);
+      clearInterval(verifyInterval);
+      document.getElementById('waiting-box').style.display = 'none';
+      document.getElementById('tx-verify-box').style.display = 'block';
+    }
+  }, 1000);
+
+  verifyInterval = setInterval(async () => {
+    const vr = await fetch('/api/check-order/' + currentOrderId, { headers: { 'x-token': token } });
+    const vd = await vr.json();
+    if (vd.approved) {
+      clearInterval(verifyInterval);
+      clearInterval(timerInterval);
+      toast('🎉 Payment verified! Plan activated!', 'ok');
+      closeModal('buy-modal');
+      loadDashboard();
+    }
+  }, 10000);
+
+  setTimeout(async () => {
+    const vr = await fetch('/api/check-order/' + currentOrderId, { headers: { 'x-token': token } });
+    const vd = await vr.json();
+    if (vd.approved) {
+      clearInterval(verifyInterval);
+      clearInterval(timerInterval);
+      toast('🎉 Payment verified! Plan activated!', 'ok');
+      closeModal('buy-modal');
+      loadDashboard();
+    }
+  }, 5000);
 }
 
 // ── Utils ─────────────────────────────────────────────────────
