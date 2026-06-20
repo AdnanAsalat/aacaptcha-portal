@@ -38,8 +38,8 @@ const SQUARENET_ADMIN_PASS = process.env.SQUARENET_ADMIN_PASS || 'admin123';
 
 // Payment addresses
 const PAYMENT_INFO = {
-  usdt_trc20: 'TSyXMwMLUGBxCPNBurRaogZzpXziAtcNh3',
-  usdt_bep20: '0xc8bf99776ca9fb0c5665ffb4a0206c0de1d4d328',
+  usdt_trc20: 'TG1iY6j2BNBdH5gQ7FiN4mfDM4cWtaZbJM',
+  usdt_bep20: '0xc2bc21a1e56cf7ff0d8cbde85263b13aab1cbe3b',
   telegram: 't.me/AACaptchaSolver',
   telegram_group: 't.me/AACaptchaSolverGroup'
 };
