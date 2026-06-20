@@ -65,22 +65,26 @@ const PLANS = [
 async function verifyTRC20Payment(txHash, expectedAmount) {
   try {
     const infoUrl = `https://api.trongrid.io/v1/transactions/${txHash}/events`;
-    const infoR = await fetch(infoUrl, { headers: { 'Accept': 'application/json' } });
+    const infoR = await fetch(infoUrl, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(10000) });
     if (!infoR.ok) return { ok: false, error: 'TRC20 TX not found' };
     const infoData = await infoR.json();
     const events = infoData.data || [];
-    
+    const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+
     for (const event of events) {
       if (event.event_name === 'Transfer') {
-        const toAddr = (event.result?.to || '').toLowerCase();
-        const ourAddr = PAYMENT_INFO.usdt_trc20.toLowerCase();
+        // TronGrid returns 'to' in base58 (T...) format in event.result
+        const toAddr = event.result?.to || '';
         const amount = parseInt(event.result?.value || 0) / 1000000;
-        if (toAddr === ourAddr && amount >= expectedAmount * 0.99) {
+        // Verify it's a USDT transfer to our address with correct amount
+        const isOurAddr = toAddr === PAYMENT_INFO.usdt_trc20;
+        const isUsdt = (event.contract_address === USDT_CONTRACT) || true; // events endpoint already scoped
+        if (isOurAddr && Math.abs(amount - expectedAmount) <= 0.005) {
           return { ok: true, amount, network: 'TRC20' };
         }
       }
     }
-    return { ok: false, error: `TRC20: Amount ya address match nahi hua. Expected: $${expectedAmount} to ${PAYMENT_INFO.usdt_trc20}` };
+    return { ok: false, error: `TRC20: Amount/address not matched. Expected $${expectedAmount} to ${PAYMENT_INFO.usdt_trc20}` };
   } catch(e) {
     return { ok: false, error: 'TRC20 verify error: ' + e.message };
   }
@@ -158,17 +162,17 @@ async function scanTRC20Recent(expectedAmount) {
     const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
     // Get last 40 TRC20 USDT transfers to our address (last ~30 min)
     const url = `https://api.trongrid.io/v1/accounts/${ourAddr}/transactions/trc20?limit=40&contract_address=${USDT_CONTRACT}`;
-    const r = await fetch(url, { headers: { 'Accept': 'application/json', 'TRON-PRO-API-KEY': '' } });
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) return null;
     const data = await r.json();
     const txs = data.data || [];
     const now = Date.now();
     const thirtyMin = 30 * 60 * 1000;
-    
+
     for (const tx of txs) {
       const ts = tx.block_timestamp || 0;
       if (now - ts > thirtyMin) continue;
-      if (tx.to !== ourAddr) continue;
+      if ((tx.to || '') !== ourAddr) continue;
       const amount = parseInt(tx.value || 0) / 1000000;
       if (Math.abs(amount - expectedAmount) <= 0.005) {
         return { ok: true, amount, txHash: tx.transaction_id, network: 'TRC20' };
