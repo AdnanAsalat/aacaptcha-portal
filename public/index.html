@@ -394,29 +394,25 @@ footer .tg{color:#2AABEE;font-weight:600}
           </div>
         </div>
 
-        <!-- TRC20 address -->
-        <div id="addr-box-trc20" class="payment-box">
-          <div class="payment-title">USDT TRC20 Address (Tron Network)</div>
-          <div class="payment-addr">TG1iY6j2BNBdH5gQ7FiN4mfDM4cWtaZbJM</div>
-          <button class="copy-btn" onclick="copyText('TG1iY6j2BNBdH5gQ7FiN4mfDM4cWtaZbJM')">📋 Copy Address</button>
-        </div>
-
-        <!-- BEP20 address -->
-        <div id="addr-box-bep20" class="payment-box" style="display:none">
-          <div class="payment-title">USDT BEP20 Address (BSC Network)</div>
-          <div class="payment-addr">0xc2bc21a1e56cf7ff0d8cbde85263b13aab1cbe3b</div>
-          <button class="copy-btn" onclick="copyText('0xc2bc21a1e56cf7ff0d8cbde85263b13aab1cbe3b')">📋 Copy Address</button>
-        </div>
-
-        <div style="font-size:11px;color:var(--red);margin-bottom:10px">⚠️ Send exact amount: <span id="exact-amount-show" style="font-weight:700"></span> USDT</div>
-
-        <button class="btn btn-primary" style="width:100%;padding:11px" onclick="createOrderAndShowAmount()">Continue to Payment →</button>
+        <button class="btn btn-primary" style="width:100%;padding:11px;margin-bottom:6px" onclick="createOrderAndShowAmount()" id="confirm-pay-btn">Confirm & Get Payment Details →</button>
+        <div style="font-size:11px;color:var(--muted);text-align:center">You'll get a unique payment amount to send</div>
       </div>
 
       <div id="buy-step2" style="display:none">
-        <div class="step"><div class="step-num">1</div><div class="step-text">Send <strong>exact amount</strong> USDT to the address above</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-text">After sending, click <strong>"I Have Sent Payment"</strong></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-text">System will automatically check for <strong>30 minutes</strong> — plan activates instantly when payment is detected!</div></div>
+        <!-- Payment details: address + EXACT amount together -->
+        <div style="background:rgba(245,158,11,.08);border:2px solid rgba(245,158,11,.4);border-radius:12px;padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Send EXACTLY this amount:</div>
+          <div style="font-size:28px;font-weight:800;color:#f59e0b;margin-bottom:2px"><span id="pay-exact-amount">0.00</span> USDT</div>
+          <div style="font-size:11px;color:#ef4444;margin-bottom:14px">⚠️ Send this EXACT amount — even 1 cent difference won't verify!</div>
+          
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">To this <span id="pay-network-label">TRC20</span> address:</div>
+          <div id="pay-address-display" style="font-size:13px;color:#a78bfa;background:#0a0a1e;padding:10px;border-radius:8px;word-break:break-all;font-family:monospace;margin-bottom:8px">—</div>
+          <button class="copy-btn" onclick="copyPayAddress()" style="width:100%">📋 Copy Address</button>
+        </div>
+
+        <div class="step"><div class="step-num">1</div><div class="step-text">Send the <strong>exact amount</strong> shown above to the address</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">After sending, click <strong>"I've Sent Payment"</strong></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">System auto-checks — plan activates instantly when detected!</div></div>
         <div class="divider"></div>
         
 
@@ -681,11 +677,9 @@ function openBuyPlan(planId) {
   if (!isCustom && selectedPlan) {
     document.getElementById('buy-amount').textContent = '$' + selectedPlan.price + ' USDT';
     document.getElementById('buy-tasks-text').textContent = selectedPlan.tasks.toLocaleString() + ' tasks/day • 30 days validity';
-    document.getElementById('exact-amount-show').textContent = selectedPlan.price;
   } else {
     document.getElementById('buy-amount').textContent = 'Custom Plan';
     document.getElementById('buy-tasks-text').textContent = 'Neeche tasks enter karo';
-    document.getElementById('exact-amount-show').textContent = '?';
   }
   // Init network selection
   selectNetwork('trc20');
@@ -703,7 +697,6 @@ function updateCustomPrice() {
     const price = tasks / 1000;
     document.getElementById('buy-amount').textContent = '$' + price + ' USDT';
     document.getElementById('buy-tasks-text').textContent = tasks.toLocaleString() + ' tasks/day • 30 days';
-    document.getElementById('exact-amount-show').textContent = price;
   } else {
     document.getElementById('buy-amount').textContent = 'Minimum $3';
     document.getElementById('buy-tasks-text').textContent = 'Minimum 3,000 tasks required';
@@ -729,8 +722,6 @@ function selectNetwork(net) {
   selectedNetwork = net;
   document.getElementById('net-trc20').style.borderColor = net==='trc20' ? 'var(--accent)' : 'var(--border)';
   document.getElementById('net-bep20').style.borderColor = net==='bep20' ? 'var(--accent)' : 'var(--border)';
-  document.getElementById('addr-box-trc20').style.display = net==='trc20' ? 'block' : 'none';
-  document.getElementById('addr-box-bep20').style.display = net==='bep20' ? 'block' : 'none';
 }
 
 let currentOrderId = null;
@@ -789,22 +780,20 @@ async function createOrderAndShowAmount() {
     pendingOrderId = d.orderId;
     pendingUniqueAmount = d.uniqueAmount;
 
-    showStep2();
+    // Set the address based on selected network
+    const addr = selectedNetwork === 'bep20' ? PAYMENT_INFO_BEP20 : PAYMENT_INFO_TRC20;
+    document.getElementById('pay-address-display').textContent = addr;
+    document.getElementById('pay-network-label').textContent = selectedNetwork.toUpperCase();
+    document.getElementById('pay-exact-amount').textContent = d.uniqueAmount.toFixed(2);
 
-    if (d.walletUsed > 0) {
-      document.getElementById('buy-amount').textContent = '$' + d.uniqueAmount.toFixed(2) + ' USDT';
-      document.getElementById('buy-tasks-text').textContent = `💰 $${d.walletUsed.toFixed(2)} used from wallet! Send: $${d.uniqueAmount.toFixed(2)}`;
-      document.getElementById('exact-amount-show').textContent = d.uniqueAmount.toFixed(2);
-    } else if (d.uniqueAmount > 0) {
-      document.getElementById('buy-amount').textContent = '$' + d.uniqueAmount.toFixed(2) + ' USDT';
-      document.getElementById('buy-tasks-text').textContent = '⚠️ Send this EXACT amount (unique tracking cents included)';
-      document.getElementById('exact-amount-show').textContent = d.uniqueAmount.toFixed(2);
-    } else {
-      document.getElementById('buy-amount').textContent = '$0 USDT';
-      document.getElementById('buy-tasks-text').textContent = '✅ Fully paid from wallet balance!';
-      document.getElementById('exact-amount-show').textContent = '0';
-    }
+    showStep2();
   } catch(e) { alert('Error: ' + e.message); }
+}
+
+function copyPayAddress() {
+  const addr = document.getElementById('pay-address-display').textContent;
+  navigator.clipboard.writeText(addr);
+  toast('Address copied!', 'ok');
 }
 
 // STEP 2: User clicks this AFTER actually sending the exact amount shown above
