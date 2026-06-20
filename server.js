@@ -87,31 +87,50 @@ async function verifyTRC20Payment(txHash, expectedAmount) {
 }
 
 // ── Auto-verify BEP20 payment ─────────────────────────────────
+// BSC public RPC nodes — ordered with eth_getLogs-capable nodes first (free, no API key)
+const BSC_RPC_NODES = [
+  'https://rpc.ankr.com/bsc',
+  'https://bsc.publicnode.com/',
+  'https://bsc.drpc.org',
+  'https://bsc-dataseed.binance.org/',
+  'https://bsc-dataseed1.defibit.io/'
+];
+
+async function bscRpcCall(method, params) {
+  for (const rpc of BSC_RPC_NODES) {
+    try {
+      const r = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!r.ok) continue;
+      const data = await r.json();
+      if (data.result !== undefined) return data.result;
+    } catch(e) { continue; } // try next node
+  }
+  return null;
+}
+
 async function verifyBEP20Payment(txHash, expectedAmount) {
   try {
-    const USDT_BEP20 = '0x55d398326f99059ff775485246999027b3197955'; // USDT on BSC
+    const USDT_BEP20 = '0x55d398326f99059ff775485246999027b3197955';
     const ourAddr = PAYMENT_INFO.usdt_bep20.toLowerCase();
-    
-    // Etherscan V2 API - multichain, chainid=56 for BSC (free, no key required for basic calls)
-    const url = `https://api.etherscan.io/v2/api?chainid=56&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${ETHERSCAN_API_KEY}`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!r.ok) return { ok: false, error: 'BEP20 TX lookup failed' };
-    const data = await r.json();
-    
-    if (!data.result) return { ok: false, error: 'Transaction not found on BSC' };
-    const receipt = data.result;
-    
+
+    const receipt = await bscRpcCall('eth_getTransactionReceipt', [txHash]);
+    if (!receipt) return { ok: false, error: 'BEP20 TX not found on-chain' };
     if (receipt.status !== '0x1') return { ok: false, error: 'Transaction failed on-chain' };
-    
+
     const logs = receipt.logs || [];
     const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-    
+
     for (const log of logs) {
-      if (log.topics[0] === transferTopic && 
+      if (log.topics[0] === transferTopic &&
           log.address.toLowerCase() === USDT_BEP20) {
         const toAddr = '0x' + log.topics[2].slice(26).toLowerCase();
         const amount = parseInt(log.data, 16) / 1e18;
-        
+
         if (toAddr === ourAddr && amount >= expectedAmount * 0.99) {
           return { ok: true, amount, network: 'BEP20' };
         }
@@ -165,21 +184,27 @@ async function scanBEP20Recent(expectedAmount) {
   try {
     const ourAddr = PAYMENT_INFO.usdt_bep20.toLowerCase();
     const USDT_BEP20 = '0x55d398326f99059ff775485246999027b3197955';
-    const url = `https://api.etherscan.io/v2/api?chainid=56&module=account&action=tokentx&contractaddress=${USDT_BEP20}&address=${ourAddr}&sort=desc&page=1&offset=20&apikey=${ETHERSCAN_API_KEY}`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!r.ok) return null;
-    const data = await r.json();
-    if (data.status !== '1') return null;
-    const txs = data.result || [];
-    const now = Math.floor(Date.now() / 1000);
-    const thirtyMin = 30 * 60;
-    
-    for (const tx of txs) {
-      if (now - parseInt(tx.timeStamp) > thirtyMin) continue;
-      if (tx.to.toLowerCase() !== ourAddr) continue;
-      const amount = parseInt(tx.value) / 1e18;
+    const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+    // pad our address to 32 bytes for topic filter
+    const paddedAddr = '0x' + '0'.repeat(24) + ourAddr.slice(2);
+
+    const latestHex = await bscRpcCall('eth_blockNumber', []);
+    if (!latestHex) return null;
+    const latest = parseInt(latestHex, 16);
+    // BSC block time ~3s, 30 min = ~600 blocks; scan last 700 for safety margin
+    const fromBlock = '0x' + (latest - 700).toString(16);
+
+    const logs = await bscRpcCall('eth_getLogs', [{
+      fromBlock, toBlock: 'latest',
+      address: USDT_BEP20,
+      topics: [transferTopic, null, paddedAddr]
+    }]);
+    if (!logs || !Array.isArray(logs)) return null;
+
+    for (const log of logs) {
+      const amount = parseInt(log.data, 16) / 1e18;
       if (Math.abs(amount - expectedAmount) <= 0.005) {
-        return { ok: true, amount, txHash: tx.hash, network: 'BEP20' };
+        return { ok: true, amount, txHash: log.transactionHash, network: 'BEP20' };
       }
     }
     return null;
@@ -201,10 +226,11 @@ async function pollPendingOrders() {
     let result = null;
     
     const checkAmount = order.uniqueAmount || order.price;
-    if (network === 'trc20' || network === 'both') {
+    const net = order.network || 'both';
+    if (net === 'trc20' || net === 'both') {
       result = await scanTRC20Recent(checkAmount);
     }
-    if (!result && (network === 'bep20' || network === 'both')) {
+    if (!result && (net === 'bep20' || net === 'both')) {
       result = await scanBEP20Recent(checkAmount);
     }
     
