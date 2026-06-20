@@ -170,7 +170,6 @@ async function scanTRC20Recent(expectedAmount) {
       if (now - ts > thirtyMin) continue;
       if (tx.to !== ourAddr) continue;
       const amount = parseInt(tx.value || 0) / 1000000;
-      // Exact match with 0.005 tolerance (half cent)
       if (Math.abs(amount - expectedAmount) <= 0.005) {
         return { ok: true, amount, txHash: tx.transaction_id, network: 'TRC20' };
       }
@@ -724,6 +723,16 @@ app.delete('/admin/delete-client/:clientId', (req, res) => {
   const usage = getUsage();
   delete usage[req.params.clientId];
   saveUsage(usage);
+  res.json({ ok: true });
+});
+
+// Delete order permanently
+app.delete('/admin/order/:orderId', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const orders = getOrders();
+  if (!orders[req.params.orderId]) return res.status(404).json({ error: 'Not found' });
+  delete orders[req.params.orderId];
+  saveOrders(orders);
   res.json({ ok: true });
 });
 
