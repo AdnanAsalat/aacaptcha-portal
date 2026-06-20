@@ -345,6 +345,17 @@ async function updateSquarenetPlan(apiKey, plan) {
   } catch(e) { return null; }
 }
 
+// Delete client on squarenet server
+async function deleteSquarenetClient(apiKey) {
+  try {
+    const r = await fetch(SQUARENET_SERVER + '/admin/clients/' + apiKey, {
+      method: 'DELETE',
+      headers: { 'x-admin-pass': SQUARENET_ADMIN_PASS }
+    });
+    return r.json();
+  } catch(e) { return null; }
+}
+
 // ── AUTH ─────────────────────────────────────────────────────
 
 // Register
@@ -437,6 +448,30 @@ app.post('/api/change-password', async (req, res) => {
   clients[token] = client;
   saveClients(clients);
   res.json({ ok: true });
+});
+
+// Regenerate API key (client can reset if shared/compromised)
+app.post('/api/regenerate-key', async (req, res) => {
+  const token = req.headers['x-token'];
+  const clients = getClients();
+  const client = clients[token];
+  if (!client) return res.status(401).json({ error: 'Invalid token' });
+  if (!client.apiKey) return res.status(400).json({ error: 'No active API key to regenerate' });
+  if (!isPlanValid(client)) return res.status(400).json({ error: 'No active plan' });
+
+  const oldKey = client.apiKey;
+  const newKey = 'aa_' + uuidv4().replace(/-/g,'').substring(0, 24);
+
+  // Update on squarenet server: create new key with same plan, delete old
+  try {
+    await createSquarenetClient(client.name, newKey, client.planTasks);
+    await deleteSquarenetClient(oldKey);
+  } catch(e) { /* continue even if squarenet sync fails */ }
+
+  client.apiKey = newKey;
+  clients[token] = client;
+  saveClients(clients);
+  res.json({ ok: true, apiKey: newKey });
 });
 
 // ── ORDERS ───────────────────────────────────────────────────
