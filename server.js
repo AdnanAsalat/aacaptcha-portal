@@ -245,8 +245,8 @@ async function pollPendingOrders() {
   saveOrders(orders);
 }
 
-// Start polling every 2 minutes
-setInterval(pollPendingOrders, 2 * 60 * 1000);
+// Start polling every 20 seconds for fast verification
+setInterval(pollPendingOrders, 20 * 1000);
 
 // ── Generate unique payment amount ───────────────────────────
 function generateUniqueAmount(basePrice) {
