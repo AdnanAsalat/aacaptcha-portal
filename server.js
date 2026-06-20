@@ -327,7 +327,7 @@ async function createSquarenetClient(name, apiKey, plan) {
     const r = await fetch(SQUARENET_SERVER + '/admin/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-pass': SQUARENET_ADMIN_PASS },
-      body: JSON.stringify({ name, plan })
+      body: JSON.stringify({ name, plan, apiKey })
     });
     return r.json();
   } catch(e) { return null; }
