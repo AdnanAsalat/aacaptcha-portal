@@ -835,9 +835,9 @@ async function submitOrder() {
         closeModal('buy-modal');
         loadDashboard();
       }
-    }, 30000);
+    }, 10000);
     
-    // Check immediately once after 15s
+    // Check immediately once after 5s
     setTimeout(async () => {
       const vr = await fetch('/api/check-order/' + currentOrderId, { headers: { 'x-token': token } });
       const vd = await vr.json();
