@@ -131,7 +131,7 @@ footer .tg{color:#2AABEE;font-weight:600}
 <nav>
   <div class="logo">🔲 AACaptcha Solver</div>
   <div class="nav-links">
-    <a href="#plans">Plans</a>
+    <a href="#" onclick="openPlansModal();return false;">Plans</a>
     <a href="#features">Features</a>
     <a href="https://t.me/AACaptchaSolver" target="_blank">Telegram</a>
     <span id="nav-auth">
@@ -253,6 +253,7 @@ footer .tg{color:#2AABEE;font-weight:600}
     <h1>🔲 AACaptcha Dashboard</h1>
     <span id="dash-name" style="color:var(--muted);font-size:13px"></span>
     <div style="flex:1"></div>
+    <button class="btn btn-ghost" style="margin-right:8px;font-size:12px" onclick="openModal('referral-modal')">🎁 Refer & Earn</button>
     <button class="btn btn-ghost" style="margin-right:8px;font-size:12px" onclick="openChangePass()">🔑 Change Password</button>
     <button class="btn btn-outline" style="font-size:12px" onclick="doLogout()">Logout</button>
   </div>
@@ -465,6 +466,17 @@ footer .tg{color:#2AABEE;font-weight:600}
   </div>
 </div>
 
+<!-- PLANS MODAL -->
+<div class="modal-bg" id="plans-modal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head"><h2>Choose Your Plan</h2><button class="modal-close" onclick="closeModal('plans-modal')">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">30 days validity • Daily reset • USDT payment (TRC20 / BEP20)</div>
+      <div id="plans-modal-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- REFERRAL MODAL -->
 <div class="modal-bg" id="referral-modal">
   <div class="modal">
@@ -551,6 +563,31 @@ function renderPlans() {
       </button>
     </div>`;
   }).join('');
+}
+
+// Open plans in a modal (works when logged in — landing is hidden)
+function openPlansModal() {
+  // If not logged in and landing visible, just scroll to plans section
+  if (!token) {
+    const sec = document.getElementById('plans');
+    if (sec) { sec.scrollIntoView({behavior:'smooth'}); return; }
+  }
+  const grid = document.getElementById('plans-modal-grid');
+  grid.innerHTML = PLANS.map(p => {
+    const isPopular = p.id === 'p4';
+    const isCustom = p.id === 'custom';
+    return `
+    <div class="plan-card${isPopular?' popular':''}" style="cursor:pointer" onclick="closeModal('plans-modal');selectPlan('${p.id}')">
+      ${isPopular ? '<div class="plan-badge">⭐ POPULAR</div>' : ''}
+      <div class="plan-price" style="font-size:22px">${isCustom?'Custom':'$'+p.price}<span style="font-size:11px">${isCustom?'':' USDT'}</span></div>
+      <div class="plan-tasks" style="font-size:14px">${isCustom?'Any':p.tasks.toLocaleString()}</div>
+      <div class="plan-sub" style="font-size:10px">tasks/day</div>
+      <button class="btn btn-primary" style="width:100%;padding:7px;font-size:11px;margin-top:8px">
+        ${isCustom?'Customize':'Select'}
+      </button>
+    </div>`;
+  }).join('');
+  openModal('plans-modal');
 }
 
 // ── Auth ─────────────────────────────────────────────────────
