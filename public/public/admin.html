@@ -121,21 +121,25 @@ async function loadOrders() {
     <div class="order-card">
       <div class="order-top">
         <div class="order-name">👤 ${o.clientName}</div>
-        <div class="order-amount">$${o.price}</div>
+        <div class="order-amount">$${(o.uniqueAmount||o.price).toFixed ? (o.uniqueAmount||o.price).toFixed(2) : (o.uniqueAmount||o.price)}</div>
         <span class="badge badge-${o.status}">${o.status.toUpperCase()}</span>
       </div>
       <div class="order-details">
         📧 ${o.clientEmail}<br>
         📦 ${o.tasks?.toLocaleString()} tasks/day • 30 days<br>
+        💰 Expected exact: <strong style="color:#a78bfa">$${(o.uniqueAmount||o.price)}</strong> via ${(o.network||'').toUpperCase()}<br>
         🔗 TX: ${o.txHash||'Not provided'}<br>
         📅 ${new Date(o.createdAt).toLocaleString()}
       </div>
       ${o.screenshot ? `<div style="margin-top:8px"><a href="/admin/screenshot/${o.screenshot}?pass=${PASS}" target="_blank" style="color:#a78bfa;font-size:12px">📸 View Screenshot</a></div>` : ''}
-      ${o.status==='pending' ? `
       <div class="order-actions">
+        ${o.status==='pending' ? `
         <button class="btn bgrn" onclick="approve('${o.id}')">✅ Approve & Activate</button>
-        <button class="btn br" onclick="reject('${o.id}')">❌ Reject</button>
-      </div>` : o.status==='approved' ? `<div style="margin-top:8px;font-size:11px;color:var(--green)">✅ Approved: ${o.approvedAt?new Date(o.approvedAt).toLocaleString():''}</div>` : `<div style="margin-top:8px;font-size:11px;color:var(--red)">❌ Rejected</div>`}
+        <button class="btn br" onclick="reject('${o.id}')">❌ Reject</button>` : 
+        o.status==='approved' ? `<span style="font-size:11px;color:var(--green)">✅ Approved: ${o.approvedAt?new Date(o.approvedAt).toLocaleString():''}</span>` : 
+        `<span style="font-size:11px;color:var(--red)">❌ Rejected</span>`}
+        <button class="btn bg" style="margin-left:auto" onclick="deleteOrder('${o.id}')">🗑 Delete</button>
+      </div>
     </div>`).join('');
 }
 
@@ -241,6 +245,13 @@ async function reject(orderId) {
   if (!confirm('Reject ?')) return;
   await api('POST', '/admin/reject/'+orderId);
   toast('Rejected', 'inf'); loadAll();
+}
+
+async function deleteOrder(orderId) {
+  if (!confirm('Delete this order permanently?')) return;
+  const d = await api('DELETE', '/admin/order/'+orderId);
+  if (d.ok) { toast('Order deleted', 'ok'); loadAll(); }
+  else toast('Error: '+(d.error||'?'), 'err');
 }
 
 function switchTab(tab, el) {
