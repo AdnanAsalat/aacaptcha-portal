@@ -297,18 +297,9 @@ footer .tg{color:#2AABEE;font-weight:600}
     </div>
   </div>
 
-  <!-- Referral Section -->
+  <!-- Referral Button -->
   <div style="padding:0 20px 16px;max-width:900px;margin:0 auto">
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
-      <div style="font-size:13px;color:#a78bfa;margin-bottom:8px;font-weight:700">🎁 Refer & Earn</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
-        Share your link — earn <strong style="color:#f59e0b">$0.10</strong> in wallet for every new client who buys any plan. Your wallet balance is auto-applied to your next purchase!
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <div id="ref-link" style="font-size:11px;color:#a78bfa;background:#0a0a1e;padding:9px 10px;border-radius:6px;flex:1;word-break:break-all;font-family:monospace">—</div>
-        <button class="btn btn-ghost" style="padding:8px 14px;font-size:11px;white-space:nowrap" onclick="copyRefLink()">📋 Copy</button>
-      </div>
-    </div>
+    <button class="btn btn-ghost" style="width:100%;padding:11px;border:1px solid var(--border)" onclick="openModal('referral-modal')">🎁 Refer & Earn — Get $0.10 per referral</button>
   </div>
 
   <div style="padding:0 20px 20px;max-width:900px;margin:0 auto">
@@ -474,9 +465,30 @@ footer .tg{color:#2AABEE;font-weight:600}
   </div>
 </div>
 
-<!-- CHANGE PASSWORD -->
-<div class="modal-bg" id="chpass-modal">
+<!-- REFERRAL MODAL -->
+<div class="modal-bg" id="referral-modal">
   <div class="modal">
+    <div class="modal-head"><h2>🎁 Refer & Earn</h2><button class="modal-close" onclick="closeModal('referral-modal')">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Share your referral link with others. When someone signs up using your link and buys <strong>any plan</strong>, you earn <strong style="color:#f59e0b">$0.10</strong> in your wallet.
+        <br><br>Your wallet balance is <strong>automatically applied</strong> to your next plan purchase!
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">Your Referral Link:</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+        <div id="ref-link" style="font-size:11px;color:#a78bfa;background:#0a0a1e;padding:10px;border-radius:8px;flex:1;word-break:break-all;font-family:monospace">—</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:11px" onclick="copyRefLink()">📋 Copy Referral Link</button>
+      <div style="margin-top:14px;padding:12px;background:#0a0a1e;border-radius:8px;text-align:center">
+        <div style="font-size:11px;color:var(--muted)">Current Wallet Balance</div>
+        <div style="font-size:22px;font-weight:800;color:#f59e0b" id="ref-wallet">$0.00</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD -->
+<div class="modal-bg" id="chpass-modal">  <div class="modal">
     <div class="modal-head"><h2>Change Password</h2><button class="modal-close" onclick="closeModal('chpass-modal')">×</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Current Password</label><input class="form-input" id="cp-old" type="password"></div>
@@ -670,7 +682,10 @@ async function loadDashboard() {
     document.getElementById('d-daily').textContent     = daily.toLocaleString();
     document.getElementById('d-expiry').textContent    = d.hasActivePlan ? days+'d' : '—';
     document.getElementById('d-bar').style.width       = pct + '%';
-    document.getElementById('d-wallet').textContent    = '$' + (d.walletBalance||0).toFixed(2);
+    const walletEl = document.getElementById('d-wallet');
+    if (walletEl) walletEl.textContent = '$' + (d.walletBalance||0).toFixed(2);
+    const refWalletEl = document.getElementById('ref-wallet');
+    if (refWalletEl) refWalletEl.textContent = '$' + (d.walletBalance||0).toFixed(2);
     if (d.referralLink) {
       document.getElementById('ref-link').textContent = d.referralLink;
     }
