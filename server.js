@@ -344,6 +344,18 @@ async function updateSquarenetPlan(apiKey, plan) {
     return r.json();
   } catch(e) { return null; }
 }
+// Suspend/unsuspend on squarenet by toggling `active` (not plan=0, which the
+// solver treats as "use default" and keeps solving). active:false hard-stops it.
+async function setSquarenetActive(apiKey, active) {
+  try {
+    const r = await fetch(SQUARENET_SERVER + '/admin/clients/' + apiKey, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pass': SQUARENET_ADMIN_PASS },
+      body: JSON.stringify({ active })
+    });
+    return r.json();
+  } catch(e) { return null; }
+}
 
 // Delete client on squarenet server
 async function deleteSquarenetClient(apiKey) {
@@ -743,9 +755,11 @@ app.post('/admin/suspend-client', async (req, res) => {
   clients[clientId].suspended = suspend;
   clients[clientId].active = !suspend;
   saveClients(clients);
-  // Also update on squarenet server
+  // Also update on squarenet server — toggle active (hard stop), and on
+  // unsuspend restore the plan too.
   if (clients[clientId].apiKey) {
-    await updateSquarenetPlan(clients[clientId].apiKey, suspend ? 0 : clients[clientId].planTasks);
+    await setSquarenetActive(clients[clientId].apiKey, !suspend);
+    if (!suspend) await updateSquarenetPlan(clients[clientId].apiKey, clients[clientId].planTasks);
   }
   res.json({ ok: true });
 });
