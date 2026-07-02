@@ -150,7 +150,9 @@ async function loadClients() {
   if (!clients.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">No clients yet</div>'; return; }
   el.innerHTML = clients.map(c => {
     const valid = c.planExpiry && new Date(c.planExpiry) > new Date();
-    const days = c.planExpiry ? Math.ceil((new Date(c.planExpiry)-new Date())/86400000) : 0;
+    const days = c.planExpiry ? Math.floor((new Date(c.planExpiry)-new Date())/86400000) : 0;
+    const buyD = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—';
+    const expD = c.planExpiry ? new Date(c.planExpiry).toLocaleDateString() : '—';
     return `
     <div class="client-row" id="cr-${c.id}">
       <div class="client-top">
@@ -161,6 +163,7 @@ async function loadClients() {
       <div class="client-info">
         📧 ${c.email}<br>
         📦 ${c.planTasks?.toLocaleString()||'No plan'} tasks/day • ${valid ? days+'d left' : 'Expired'}<br>
+        🛒 Buy: ${buyD} &nbsp; ⏳ Expiry: ${expD}<br>
         📊 Used today: ${c.usedToday||0}<br>
         ${c.apiKey ? `🔑 <span class="key-text">${c.apiKey}</span>` : '<span style="color:var(--muted)">No API key yet</span>'}
       </div>
